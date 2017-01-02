@@ -1,0 +1,38 @@
+'''  syntax  '''
+
+atom = var | python string | python number | bool
+bool = True | False
+func_call = func args
+func_partial = '@' func '('args')'  | '@' func '('args')'
+func = funcname | lambda
+os_call = '$' [s+] $ | '$' ([S+])
+lambda = 'lambda' args ':' binary_expr
+simple_if_expr = binary_expr 'if' cond 'else' binary_expr 
+val_expr = func_call | atom | get_val
+prefix_expr = val_expr    | unary val_expar | simple_if_expr | lambda | func_partial | list | dict | tuple
+binary_expr = prefix_expr | '(' binary_expr ')' | prefix_expr binary binary_expr
+exprs = [binary_expr+]
+assign = var '=' expr
+list = '[' binary_expr|list_splice_index [,] ']'
+tuple = '[' binary_expr [,] ']'
+dict = '{' [atom':' binary_expr*] '}'
+list_splice_index = '[' index+[,] ']'
+index = Int | Int:Int | Int:Int:Int
+get_val = var'['keys']'
+keys = binary_expr+[,] | list_splice_index
+pattern_match = pattern_var+['::'] '=' binary_expr
+pattern_var = var | _
+parn = '(' binary_expr ')'
+control_expr = if_expr | for_expr | while_expr
+complex_expr = control_expr | binary_expr | pattern_match
+complex_exprs = [complex_expr+] 
+if_expr = 'if' cond  ':'  complex_exprs 'else' complex_exprs 'end'
+cond = binary_expr
+return = 'return' binary_expr 
+
+for_expr = 'for' var|pattern_match 'in' binary_expr ':' complex_exprs 'end'
+while_expr = 'while' cond ':' complex_exprs 'end'
+
+def = 'def' funcname '('args')' ':' body 'end'
+body_expr = complex_expr | def
+body = [body_expr*, return?]
