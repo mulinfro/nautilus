@@ -11,6 +11,7 @@ operators = {
     '==': 'EQUAL',
     '=': 'ASSINE',
     '@': 'partial',
+    ':': 'COLON',
 }
 
 op_order = {

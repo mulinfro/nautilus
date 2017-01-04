@@ -1,19 +1,9 @@
-
-op_order = {
-        "=": 1,
-        "||": 2,
-        "&&": 3,
-        "|": 5,
-        "<": 7, ">": 7, "<=": 7, ">=": 7, "==": 7, "!=": 7,
-        "+": 10, "-": 10,
-        "*": 20, "/": 20, "%": 20,
-        }
+from buildin_operators import operators, op_order, Binary, Unary
 
 class tokens():
 
     def __init__():
         pass
-
 
 class Env(dict):
     "An environment: a dict of {'var':val} pairs, with an outer Env."
@@ -24,21 +14,14 @@ class Env(dict):
         "Find the innermost Env where var appears."
         return self if (var in self) else self.outer.find(var)
 
-
 def parse(env):
     if token.cur[0] == 'VAR':
         if token.next[0].type == 'ASSIGN':
-            parse_assign(env)
-        else if token.next[0].type in ('ATOM', 'VAR'): 
-            parse_funcall(env)
-        else if token.next[0].type == 'OP': 
-            parse_expr(env)
+            parse_binary_expr(env)
         else if token.next[0].type in ('IF','FOR', 'FOREACH', 'WHILE'): 
             parse_control(env)
         else if token.next[0].type == 'DEF': 
             parse_def(env)
-        else if token.next[0].type == 'LAMBDA': 
-            parse_lambda(env)
         else if token.next[0].type == 'IMPORT': 
             parse_import(env)
 
@@ -65,14 +48,14 @@ def parse_oper(oper_type):
     Error()
     return None
 
-def parse_expr(env):
+def parse_binary_expr(env):
     op_stack = []
     val_stack = []
-    val_stack.append(parse_simple_expr(env))
+    val_stack.append(parse_val_expr(env))
     while token.get_cur_token_type() in Binary:
         op_stack.append( (op_order[token.get_cur_token_type()], parse_oper(token.get_cur_token_type()) ))
         token._next()
-        val_stack.append(parse_simple_expr(env))
+        val_stack.append(parse_val_expr(env))
 
     def compute_expr():
         def binary_order(left):
@@ -97,9 +80,8 @@ def parse_expr(env):
     
     return compute_expr
 
-
 # function call; var; literal value; unary operator
-def parse_simple_expr(env):
+def parse_val_expr(env):
     op_func = None
     if token.get_cur_token_type() in Unary:
         op_func = parse_oper(token.get_cur_token_type())
@@ -113,13 +95,26 @@ def parse_simple_expr(env):
         atom = parse_tuple(env)
     else if t_type is 'DICT': 
         atom = parse_dict(env)
-    else if t_type in ('STRING','NUM'):
+    else if t_type is 'NUM':
         val = token.get_cur_token_value()
         atom = lambda : val
+    else if t_type is 'STRING':
+        atom = parse_string(env)
+    else if t_type is 'FUNC':
+        atom = parse_func_call(env)
+    else if t_type is 'PARTIAL':
+        atom = parse_partial(env)
+    else if t_type is 'LAMBDA':
+        atom = parse_lambda(env)
+    else if t_type is 'SIMPLE_IF':
+        atom = parse_simple_if(env)
     if op_func:
         return lambda : op_func(atom())
 
 def parse_list(env):
+    pass
+
+def parse_lambda(env):
     pass
 
 def parse_tuple(env):
