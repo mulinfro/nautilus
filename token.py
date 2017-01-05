@@ -58,7 +58,7 @@ class token():
         elif ch == '(': tkn = self.read_parn()
         elif ch == '.': tkn = self.read_dot()
         elif str.isdigit(ch): tkn = self.read_num()
-        elif str.isalpha(ch): tkn = self.read_var()
+        elif str.isalpha(ch) or ch == '_': tkn = self.read_var()
         elif ch in ',\n':     tkn = self.read_sep()
         else: tkn = self.read_op()   # throw exception
         return tkn
@@ -75,7 +75,8 @@ class token():
 
     def read_var(self):
         var = ""
-        while str.isalnum(self.inputstream.peek()):
+        is_valid = lambda x: str.isalnum(x) or x == '_'
+        while is_valid(self.inputstream.peek()):
             var += self.inputstream.next()
         if var in keywords:
             return (keywords[var], var)
@@ -84,7 +85,7 @@ class token():
     def read_op(self):
         TYPE = 'OP'
         op = ""
-        while self.inputstream.peek() in '!=<>|$&:_@%':
+        while self.inputstream.peek() in '!=<>|$&:@%':
             var += self.inputstream.next()
         if op in operators: 
             return (TYPE, operators[var])

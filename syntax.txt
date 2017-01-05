@@ -8,7 +8,7 @@ func_partial = '@' func '('args')'  | '@' func '('args')'
 func = funcname | lambda
 os_call = '$' [s+] $ | '$' ([S+])
 lambda = 'lambda' args ':' binary_expr
-/// pattern_match = pattern_var+['::'] '=' binary_expr
+pattern_match = pattern_var+['::'] '=' binary_expr
 pattern_var = var | _
 simple_if_expr = binary_expr 'if' cond 'else' binary_expr 
 val_expr = func_call | atom | get_val |  lambda | func_partial | list | dict | tuple  | simple_if_expr | pattern_var
