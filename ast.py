@@ -6,7 +6,6 @@ def syntax_assert(tkn, need_tkn, errstr = "", not_ = False):
     if not flag and error_msg: Error(error_msg)
     return True
 
-
 class AST():
     
     def __init__(self, tokens):
@@ -54,22 +53,30 @@ class AST():
             return ('DEF', funcname, args, body)
             
         def ast_args(self, stm):
-            args = []
+            args, default_args = [], []
+            need_default = False
             while not stm.eof():
-                if len(args) > 0:
-                    syntax_assert(stm.next()[1], "COMMA", "missing comma")
-                args.append(ast_one_arg)
-            return args
+                if not need_default and stm.leftnum() > 1 and syntax_assert(stm.looknext(), ("SEP", "COMMA")):
+                    args.append(self.ast_one_arg(stm))
+                else:
+                    need_default = True
+                    default_args.append(self.ast_one_default_arg(stm))
+
+                if not stm.eof():
+                    syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma")
+            return ("ARGS", args, default_args)
 
 
         def ast_one_arg(self, stm):
             arg = self.ast_a_var(stm, "need funcname", True)
-            tkn_type, tkn_val = stm.peek()
-            default_value = []
-            if tkn_type is "ASSIGN":
-                stm.next()
-                default_value.append(self.ast_binary_expr(stm))
-            return (arg, default_value)
+            return ("ARG", arg)
+
+        def ast_one_default_arg(self, stm):
+            arg = self.ast_a_var(stm, "syntax error")
+            syntax_assert(stm.next(), ("ASSIGN", "="), \
+                  "non-default argument follows default argument")
+            default_value = self.ast_binary_expr(stm)
+            return ("DEFAULT_ARG", arg, default_value)
 
         def ast_body(self, stm, parse_func = self.ast_body_part):
             body = []
@@ -127,11 +134,91 @@ class AST():
             val = self.ast_binary_expr(stm)
             return ("IN", vars, val)
 
-
         def ast_binary_expr(self, stm):
+            vals , ops = [], []
+            while not stm.eof():
+                tkn_type, tkn_val = stm.peek()
+                if tkn_type is "PARN":
+                    vals.append(self.ast_binary_expr(stream(tkn_val)))
+                else:
+                    vals.append(self.ast_prefix_expr(stm))
+                if not stm.eof():
+                    tkn_type, tkn_val = stm.peek()
+                    if tkn_type is "IF":
+                        return self.ast_simple_if(stm, ("BINARY", vals, ops))
+                    op = self.ast_op(stm)
+                    if op is None: return ("BINARY", vals, ops)
+                    ops.append(op)
+
+        def ast_prefix_expr(self, stm):
+            tkn_type, tkn_val = stm.peek()
+            op = self.ast_op(stm)
+            if op not in Unary: Error()
+            return ("PREFIX", op, self.ast_val_expr(stm))
+
+            
+        def ast_val_expr(self, stm):
+            tkn_type, tkn_val = stm.peek()
+            if tkn_type is "LIST":
+                self.ast_list(stream(stm))
+            elif tkn_type is "PARN":
+                self.ast_parn(stream(stm))
+            elif tkn_type is "DICT":
+                self.ast_dict(stream(stm))
+            elif tkn_type is "LAMBDA":
+                self.ast_lambda(stm)
+            elif (tkn_type, tkn_val) == ("OP", "PARTIAL"):
+                stm.next()
+                t = self.ast_func_call()
+                val = ("PARTIAL", t)
+            else:
+
+            return val
+                
+
+        def ast_lambda(self, stm):
+            stm.next()
+            args = self.ast_args(stm)
+            syntax_assert(("OP", "COLON"), stm.next(), "error")
+            body = self.ast_binary_expr(stm)
+            return ("LAMBDA", args, body)
+
+        def ast_
+            
+        def ast_list_comp(self, stm):
+            beg, end, interval = 0,0,1
+            beg = self.ast_binary_expr()
+            syntax_assert(("OP", "COLON"), stm.next()):
+            end = self.ast_binary_expr()
+            if syntax_assert(("OP", "COLON"), stm.next()):
+                interval = self.ast_binary_expr()
+            return ("LISTCOM", (beg, end, interval))
+            
+        def ast_list(self, stm):
+            vals = []
+            while not stm.eof():
+                if syntax_assert(("OP", "COLON"), stm.looknext()):
+                    expr = self.ast_list_comp(stm)
+                else:
+                    expr = self.ast_binary_expr()
+                if not stm.eof():
+                    syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
+                vals.append(expr)
+            return ("LIST", vals)
+
+        def ast_tuple(self, stm):
             pass
 
-
+        def ast_dict(self, stm):
+            vals = []
+            while not stm.eof():
+                key = self.ast_binary_expr(stm)
+                syntax_assert(("OP","COLON"), stm.next(), "missing colon :")
+                val = self.ast_binary_expr(stm)
+                if not stm.eof():
+                    syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
+                vals.append((key, val))
+            return ("DICT", vals)
             
         def ast_for(self, stm):
             stm.next()

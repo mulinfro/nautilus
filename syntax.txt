@@ -11,8 +11,8 @@ lambda = 'lambda' args ':' binary_expr
 pattern_match = pattern_var+['::'] '=' binary_expr
 pattern_var = var | _
 simple_if_expr = binary_expr 'if' cond 'else' binary_expr 
-val_expr = func_call | atom | get_val |  lambda | func_partial | list | dict | tuple  | simple_if_expr | pattern_var
-prefix_expr = val_expr    | unary val_expar 
+val_expr = func_call | atom | get_val |  lambda | func_partial | list | dict | tuple  | simple_if_expr | pattern_var | module_get
+prefix_expr = val_expr | unary val_expar 
 binary_expr = prefix_expr | '(' binary_expr ')' | prefix_expr binary binary_expr
 exprs = [binary_expr+]
 assign = var '=' expr

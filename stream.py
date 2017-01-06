@@ -20,5 +20,8 @@ class stream():
     def eof(self):
         return self.pos >= len(self._stream)
 
-    def looknext():
+    def looknext(self):
         return self._stream[self.pos + 1]
+
+    def leftnum(self):
+        return len(self._stream) - self.pos
