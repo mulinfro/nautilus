@@ -13,6 +13,10 @@ class stream():
     def peek(self):
         return self._stream[self.pos]
 
+    def back(self):
+        pos = pos - 1
+        return self.looknext()
+
     def next(self):
         pos = pos + 1
         return self.lookahead()
