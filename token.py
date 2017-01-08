@@ -130,7 +130,7 @@ class token_stream():
         val = []
         self.stream.next()
         while not self.stream.eof():
-            self.read_white_space()
+            self.read_white_space(" \t\n")
             ch = self.stream.peek()
             if ch == end_ch:
                 self.stream.next()
