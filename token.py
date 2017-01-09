@@ -150,6 +150,7 @@ class token_stream():
         val = self.read_pair( '}')
         return token("MAP", val, line, col)
 
+   # Q  may ( lambda x,y: x+ y)
     def read_parn(self):
         line, col = self.stream.line, self.stream.col
         val = self.read_pair(')')

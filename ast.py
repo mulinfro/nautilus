@@ -1,16 +1,7 @@
 from stream import stream
+import sys
 
 ## Q?   ast_expr   when terminal
-
-def syntax_check(tkn, need_tkn,  only_type = False, not_ = False):
-    if only_type: flag = tkn.tp == need_tkn 
-    else: flag = (tkn.tp, tkn.val) == need_tkn 
-    return not flag if not_ else flag
-
-def syntax_assert(tkn, need_tkn,  errstr = "", only_type = False, not_ = False):
-    if not syntax_check(tkn, need_tkn, only_type, not_):
-        Error(error_msg)
-    return True
 
 class AST():
     
@@ -27,6 +18,10 @@ class AST():
                 self.ast.append(self.ast_import(self.tokens))
             else:
                 self.ast.append(self.ast_block_expr(self.tokens))
+
+    def ast_import(self, stm):
+        syntax_assert(stm.next(), "IMPORT", "", True)
+        return ("IMPORT", packages)
 
     def ast_same_type_seq(self, stm, is_valid):
         tps = []
@@ -99,7 +94,7 @@ class AST():
         syntax_assert(stm.next().tp, "END", "missing comma")
         return ('DEF', funcname, args, body)
         
-    def ast_args(self, stm):
+    def ast_args(self, stm, is_end_tkn):
         args, default_args = [], []
         need_default = False
         while not stm.eof():
@@ -113,7 +108,9 @@ class AST():
 
             if not stm.eof():
                 syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma")
-        return ("ARGS", args, default_args)
+            if is_end_tkn(tkn):
+                return ("ARGS", args, default_args)
+        Error("Unexpected EOL")
 
     def ast_body(self, stm, parse_func = self.ast_func_body):
         body = []
