@@ -1,11 +1,14 @@
 from stream import stream
 
-def syntax_check(tkn, need_tkn, not_ = False):
-    flag = tkn == need_tkn 
+## Q?   ast_expr   when terminal
+
+def syntax_check(tkn, need_tkn,  only_type = False, not_ = False):
+    if only_type: flag = tkn.tp == need_tkn 
+    else: flag = (tkn.tp, tkn.val) == need_tkn 
     return not flag if not_ else flag
 
-def syntax_assert(tkn, need_tkn,  errstr = "", not_ = False):
-    if not syntax_check(tkn, next_tkn, not_):
+def syntax_assert(tkn, need_tkn,  errstr = "", only_type = False, not_ = False):
+    if not syntax_check(tkn, need_tkn, only_type, not_):
         Error(error_msg)
     return True
 
@@ -100,27 +103,17 @@ class AST():
         args, default_args = [], []
         need_default = False
         while not stm.eof():
-            if not need_default and stm.leftnum() > 1 and syntax_assert(stm.looknext(), ("SEP", "COMMA")):
-                args.append(self.ast_one_arg(stm))
-            else:
+            arg = self.ast_a_var(stm, "need funcname", True)
+            if need_default or stm.looknext():
+                syntax_assert(stm.next(), ("ASSIGN", "="), \
+                      "non-default argument follows default argument")
+                default_value = self.ast_expr(stm)
+                default_args.append(( arg, default_value))
                 need_default = True
-                default_args.append(self.ast_one_default_arg(stm))
 
             if not stm.eof():
                 syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma")
         return ("ARGS", args, default_args)
-
-
-    def ast_one_arg(self, stm):
-        arg = self.ast_a_var(stm, "need funcname", True)
-        return ("ARG", arg)
-
-    def ast_one_default_arg(self, stm):
-        arg = self.ast_a_var(stm, "syntax error")
-        syntax_assert(stm.next(), ("ASSIGN", "="), \
-              "non-default argument follows default argument")
-        default_value = self.ast_expr(stm)
-        return ("DEFAULT_ARG", arg, default_value)
 
     def ast_body(self, stm, parse_func = self.ast_func_body):
         body = []
@@ -157,16 +150,19 @@ class AST():
         self.ast.append(('IF', cond, true_part, else_part)
         
     def ast_pattern_var(self, stm):
-        variables = []
+        variables = [self.ast_a_var(stm)]
         while True:
-            variables.append(ast_a_var(self, stm))
-            tkn = stm.peek()
-            if check_token(): stm.next()
-            else: return variables
+            if syntax_check(stm.peek(), ("OP","PATTERN")): 
+                stm.next()
+                variables.append(self.ast_a_var(stm))
+            elif len(variables) > 1: 
+                return ("PATTERNVAR", variables)
+            else:
+                return ("VAR", variables[0])
 
     def ast_in(self, stm):
         var = self.ast_pattern_var(stm)
-        syntax_assert(stm.next().tp, "IN", "error syntax in for")
+        syntax_assert(stm.next(), "IN", "error syntax in for", True)
         val = self.ast_expr(stm)
         return ("IN", var, val)
 
@@ -236,21 +232,19 @@ class AST():
         return ("LAMBDA", args, body)
 
     def ast_list_comp(self, stm):
-        beg, end, interval = 0,0,1
-        beg = self.ast_expr()
-        syntax_assert(("OP", "COLON"), stm.next()):
-        end = self.ast_expr()
-        if syntax_assert(("OP", "COLON"), stm.next()):
-            interval = self.ast_expr()
+        beg = self.ast_expr(stm)
+        if not syntax_check(stm.next(), ("OP", "COLON") ):
+            return beg
+        end = self.ast_expr(stm)
+        interval = 1
+        if syntax_check(stm.next(), ("OP", "COLON")):
+            interval = self.ast_expr(stm)
         return ("LISTCOM", (beg, end, interval))
         
     def ast_list(self, stm):
         vals = []
         while not stm.eof():
-            if syntax_assert(("OP", "COLON"), stm.looknext()):
-                expr = self.ast_list_comp(stm)
-            else:
-                expr = self.ast_expr(stm)
+            expr = self.ast_list_comp(stm)
             if not stm.eof():
                 syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
             vals.append(expr)
