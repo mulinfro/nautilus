@@ -2,6 +2,15 @@ from stream import stream
 import sys
 
 ## Q?   ast_expr   when terminal
+'''
+    def ast_not_if_expr(self, stm):
+        tkn = stm.peek()
+        if tkn.tp is "PARN":
+            stm.next()
+            return self.ast_parn_expr(tkn.val, self.check_eof)
+        else:
+            return self.ast_binary_expr(stm)
+'''
 
 class AST():
     
@@ -39,9 +48,9 @@ class AST():
 
     def ast_block_expr(self, stm):
         if stm.peek()[0] in ['IF', 'FOR', 'WHILE']:
-            return self.ast_control(self.tokens)
+            return self.ast_control(stm)
         else:
-            return self.ast_expr(self.tokens)
+            return self.ast_expr(stm)
 
     def ast_control(self, stm):
         tkn = stm.peek()
@@ -53,14 +62,15 @@ class AST():
             return self.ast_while(stm)
         Error()
 
-    def ast_not_if_expr(self, stm):
-        tkn = stm.peek()
-        if tkn.tp is "PARN":
-            stm.next()
-            return self.ast_expr(stream(tkn.val), self.check_eof)
+    def ast_parn_expr(self, val, checker):
+        stm = stream(val)
+        vals = self.ast_list(stm)
+        checker(stm)
+        if len(vals) == 1 and syntax_check(val[-1], ("SEP", "COMMA"), _not = True): 
+            return vals[0]
         else:
-            return self.ast_binary_expr(stm)
-
+            return ("TUPLE", tuple(vals))
+        
     def check_newline(self, stm):
         if not stm.eof():
             syntax_assert(stm.next().tp, "NEWLINE", False, "syntax error")
@@ -70,14 +80,14 @@ class AST():
 
     def ast_expr(self, stm, end_checker = self.check_newline):
         true_part, cond, else_part = [], [], []
-        true_part = self.ast_not_if_expr(stm)
+        true_part = self.ast_binary_expr(stm)
         tkn = stm.peek()
         if tkn.tp is "IF":
             syntax_assert(len(true_part), 0, True, "syntax error")
             stm.next()
-            cond = self.ast_not_if_expr(stm)
+            cond = self.ast_binary_expr(stm)
             syntax_assert(stm.next().tp, "ELSE", False, "syntax error")
-            else_part = self.ast_not_if_expr(stm)
+            else_part = self.ast_binary_expr(stm)
             end_checker(stm)
             return ("SIMPLEIF", [true_part, cond, else_part])
 
@@ -175,22 +185,19 @@ class AST():
         return ("PREFIXOP", tps)
 
     def ast_suffix_op(self, stm):
-        is_valid = lambda tkn: tkn.type in ("LIST", "PARN", "TUPLE")
+        is_valid = lambda tkn: tkn.type in ("LIST", "PARN" )
         tps = self.ast_same_type_seq(stm, is_valid)
         return ("SUFFIXOP", tps)
 
     def ast_binary_expr(self, stm):
         vals , ops = [], []
         while not stm.eof():
-            tkn = stm.peek()
-            if tkn.tp is "PARN":
-                vals.append(self.ast_expr(stream(tkn.val)), self.check_eof)
-            else:
-                vals.append(self.ast_unary(stm))
+            vals.append(self.ast_unary(stm))
             if not stm.eof():
                 op = self.ast_try_op(stm)
-                if op is None: return ("BINARY", vals, ops)
-                else:          ops.append(op)
+                if op is None: break
+                ops.append(op)
+        return ("BINARY", vals, ops)
 
     def ast_try_op(stm):
         tkn = stm.peek()
@@ -204,7 +211,7 @@ class AST():
             val = self.ast_lambda(stm)
         elif tkn.tp is "LIST":
             val = self.ast_list(stream(tkn.val))
-        elif tkn.tp is "TUPLE":
+        elif tkn.tp is "PARN":
             val = self.ast_tuple(stream(tkn.val))
         elif tkn.tp is "DICT":
             val = self.ast_dict(stream(tkn.val))

@@ -126,7 +126,8 @@ class token_stream():
         else:
             self.stream.croak('invalid syntax')
 
-    def read_pair(self, end_ch):
+    def read_pair(self, tp, end_ch):
+        line, col = self.stream.line, self.stream.col
         val = []
         self.stream.next()
         while not self.stream.eof():
@@ -134,29 +135,20 @@ class token_stream():
             ch = self.stream.peek()
             if ch == end_ch:
                 self.stream.next()
-                return val
+                return token(tp, val, line, col)
             else:
                 val.append(self.read_a_token())
 
         self.stream.croak('missing ' + end_ch)
 
     def read_list(self):
-        line, col = self.stream.line, self.stream.col
-        val = self.read_pair(']')
-        return token("LIST", val, line, col)
+        return self.read_pair("LIST", ']')
 
     def read_hashmap(self):
-        line, col = self.stream.line, self.stream.col
-        val = self.read_pair( '}')
-        return token("MAP", val, line, col)
+        return self.read_pair("MAP", '}')
 
-   # Q  may ( lambda x,y: x+ y)
     def read_parn(self):
-        line, col = self.stream.line, self.stream.col
-        val = self.read_pair(')')
-        if ('SEP', 'COMMA') in val:
-            return token('TUPLE', val, line, col)
-        return token("PARN", val, line, col)
+        return self.read_pair("PARN",')')
 
     def read_num(self):
         line, col = self.stream.line, self.stream.col
