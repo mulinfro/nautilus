@@ -1,10 +1,5 @@
 from buildin_operators import operators, op_order, Binary, Unary
 
-class tokens():
-
-    def __init__():
-        pass
-
 class Env(dict):
     "An environment: a dict of {'var':val} pairs, with an outer Env."
     def __init__(self, parms=(), args=(), outer=None):
@@ -14,20 +9,27 @@ class Env(dict):
         "Find the innermost Env where var appears."
         return self if (var in self) else self.outer.find(var)
 
-def parse(env):
-    if token.cur[0] == 'VAR':
-        if token.next[0].type == 'ASSIGN':
-            parse_binary_expr(env)
-        else if token.next[0].type in ('IF','FOR', 'FOREACH', 'WHILE'): 
-            parse_control(env)
-        else if token.next[0].type == 'DEF': 
-            parse_def(env)
-        else if token.next[0].type == 'IMPORT': 
-            parse_import(env)
+ast_stream = None
 
-def parse_control(env):
-    if token.next[0].type == 'IF':
-        parse_if(env)
+def parse(env):
+    tp = ast_stream.peek()["type"]
+    if tp == 'DEF': 
+        parse_def(node, env)
+    elif tp == 'IMPORT': 
+        parse_import(node, env)
+    else:
+        parse_block_expr(node, env)
+
+def parse_partial(f, env):
+    return lambda node: f(node,env)
+    
+def parse_control(node, env):
+    if node["type"] == 'IF':
+        parse_if(node, env)
+    elif node["type"] == 'WHILE': 
+        parse_while(node, env)
+    elif node["type"] == "FOR":
+        parse_for(node, env)
 
 def parse_assign(env):
     var = token.cur[1]
@@ -111,49 +113,75 @@ def parse_val_expr(env):
     if op_func:
         return lambda : op_func(atom())
 
-def parse_list(env):
-    pass
-
-def parse_lambda(env):
-    pass
+def parse_list(node, env):
+    l_vals = map(parse_partial(parse_expr, env), node["val"]))
+    return lambda: map(lambda f: f(env), l_vals) 
 
 def parse_tuple(env):
-    val = parse_list(env)
+    val = parse_list(node, env)
     return lambda: tuple(val())
 
 def parse_dict():
-    pass
-
+    keys = parse_list(node["key"], env)
+    vals = parse_list(node["val"], env)
+    def _dict():
+        t_key = map(lambda f: f(env), keys) 
+        t_val = map(lambda f: f(env), vals) 
+        return {}.update(zip(t_key, t_val)
+    return _dict
+        
 def return_none(env = {}):
     return None
 
-def parse_if(env):
-    token._next()
-    if token.cur[0] != 'PARN': Error()
-    cond_lambda,env_cond = parse_expr(env)
-    then_lambda,env_then = parse_block(env):
-    if token.cur[0] != 'ELSE':
-        else_lambda, env_else = parse_block(env)
-    return (lambda : then_lambda(env_then) if (cond_lambda(env)) else else_lambda(env_else) , env)
+def parse_if(node, env):
+    cond = parse_expr(node["cond"], env)
+    then_f = parse_block(node["then"], env)
+    else_f = parse_block(node["else"], env)
+    return lambda : then_f(env) if cond(env) else else_f(env)
 
-def parse_for(env):
+def parse_for(node, env):
+    in_f = parse_in(node["in"], env)
+    cond = parse_expr(node["cond"], env)
+    body_f = parse_block(node["body"], env)
+
+    def _for():
+        g = in_f(env)
+        while True:
+            try:
+                env.update(next(g))
+                if cond(env): body_f(env)
+            except StopIteration:
+                break
+        
+    return _for
+
+def parse_func_call():
+
+def parse_while(node, env):
+    cond = parse_expr(node["cond"], env)
+    body_f = parse_block(node["body"], env)
     
-def parse_lambda(env):
-    token._next()
-    arg_var_list = parse_args(env)
-    def proc(arg_val_list):
-        inner_env = Env(env)
-        inner_env.update(zip(arg_var_list, arg_val_list))
-        return parse_expr(inner_env)
+    def _while():
+        while cond(env):
+            body_f(env)
+
+    return _while
+
+# Q default args
+def parse_lambda(node, env):
+    arg_var_list = parse_args(node["args"], env)
+    new_env = Env(outer = env)
+    body_f = parse_expr(node["body"], new_env)
+    def proc(*arg_val_list):
+        new_env.update(zip(arg_var_list,arg_val_list))
+        return body_f(new_env)
     return proc
 
-def parse_atom(env):
-    val = token.cur[1]
-    token._next()
-    return val
+def parse_atom(node, env):
+    return lambda: node["val"]
 
-def parse_var(env):
-    var = token.cur[1]
+def parse_var(node, env):
+    var = node["var"]
     def find():
         if var not in env:
             Error()
