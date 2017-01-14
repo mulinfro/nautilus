@@ -8,27 +8,31 @@ operators = {
     '-': 'MINUS',
     '%': 'MOD',
     '$': 'OSCALL',
-    '==': 'EQUAL',
-    '=': 'ASSINE',
-    '@': 'partial',
+    '==':'EQUAL',
+    '=': 'ASSIGN',
     ':': 'COLON',
+    "<": "LT",
+    ">": "GT",
+    "<=": "LE",
+    ">=": "GE",
+    "!=": "NEQ",
 }
 
 op_order = {
-    '&>':1,
-    '&>>':1,
-    "=": 2,
+    'WRITE':1,
+    'APPEND':1,
+    "ASSIGN": 2,
     "OR": 3,
     "AND": 4,
-    "|": 5,
-    "<": 7, ">": 7, "<=": 7, ">=": 7, "==": 7, "!=": 7,
-    "+": 10, "-": 10,
-    "*": 20, "/": 20, "%": 20,
+    "PIPE": 5,
+    "LT": 7, "GT": 7, "LE": 7, "GE": 7, "EQUAL": 7, "NEQ": 7,
+    "ADD": 10, "MINUS": 10,
+    "MUL": 20, "DIV": 20, "MOD": 20,
 }
 
 # 右结合
 op_right = {
-    "=": 2,
+    "EQUAL": 2,
 }
 
 _add = lambda x,y: x + y
@@ -53,17 +57,37 @@ def _write(var, filename):
 def _append(var, filename):
     _write_helper(var, filename, 'a')
 
+def _call(f, *args):
+    return f(*args)
+
+def _get_dict(v, k):
+    r = [v[ki] if ki in v else None for ki in k]
+    if len(r) == 1: return r[0]
+    return r
+
+def _get(v, k):
+    if type(v) is dict: return _get_dict(v,k)
+    if len(k) == 1: return v[k]
+    else: return [v[ki] for ki in k]
+
+def _assign(var, val, env):
+    env[var] = val()
+    return val
+
+def _return(v):
+    raise v
+
 Binary = {
     'PIPE':   _pipe,
-    '&>':     _write,
-    '&>>':    _append,
+    'WRITE':  _write,
+    'APPEND': _append,
     'ADD':    _add,
     'MUL':    _mul,
     'DIV':    _div,
     'MINUS':  _minus,
     'MOD':    _mod,
     'EQUAL':  _equal,
-    'ASSINE': _assine,
+    'ASSIGN': _assign,
     'AND':    _and,
     'OR':     _or,
 }
@@ -71,6 +95,8 @@ Binary = {
 
 Unary = {
     'OSCALL', None,
-    'not': _not,
-    'partial':None
+    'NOT': _not,
+    "PARN": _call,
+    "GET" : _get,
+    "RETURN": _return,
 }

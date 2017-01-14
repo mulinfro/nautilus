@@ -1,6 +1,4 @@
 
-
-
 class stream():
     
     def __init__(self, lst, pos=0):
@@ -11,21 +9,26 @@ class stream():
         return self._stream[self.pos - 1]
 
     def peek(self):
+        if self.eof():  Error("EOL while scanning string literal")
         return self._stream[self.pos]
 
     def back(self):
         pos = pos - 1
-        return self.looknext()
+        #return self.looknext()
 
     def next(self):
+        ch = self.peek()
         pos = pos + 1
-        return self.lookahead()
+        return ch
 
     def eof(self):
         return self.pos >= len(self._stream)
 
     def looknext(self):
-        return self._stream[self.pos + 1]
+        self.next()
+        ch = self.peek()
+        self.back()
+        return ch
 
     def leftnum(self):
         return len(self._stream) - self.pos

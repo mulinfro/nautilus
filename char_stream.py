@@ -4,7 +4,7 @@ class char_stream(stream):
     self.line,  self.col = 0, 0
 
     def next(self):
-        ch = self._stream[pos]
+        ch = self.peek()
         self.col = self.col + 1
         if ch == '\n':
             col = 0

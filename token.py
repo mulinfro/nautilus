@@ -13,7 +13,11 @@ keywords = {
 'end': 'END',
 'is' : 'IS',
 'in' : 'IN',
-
+'while': "WHILE",
+'for'  : "FOR",
+"None" : None,
+"Nil"  : "NIL"
+"return": "RETURN"
 }
 
 escape = {
@@ -42,24 +46,24 @@ class token():
         self.line = line
         self.col  = col
 
-class token_stream():
+class token_list():
     
-    def __init__(self, stream):
-        self.stream = stream
-        self.token_list = []
+    def __init__(self, chars):
+        self.chars = chars
+        self.tokens = self.read_tokens()
 
     def read_tokens(self):
-        token_list = [None]
+        tokens = [None]
         while True:
-            tkn = read_a_token()
+            tkn = self.read_a_token()
             if tkn is None:
-                return token_list
-            token_list.append(tkn)
+                return tokens
+            tokens.append(tkn)
         
     def read_a_token(self):
-        self.read_white_space()
-        if self.stream.eof(): return None
-        ch = self.stream.peek()
+        self.read_white_space(" \t\n")
+        if self.chars.eof(): return None
+        ch = self.chars.peek()
         if ch in ('"', "'"): tkn = self.read_string()
         elif ch == '[': tkn = self.read_list()
         elif ch == '{': tkn = self.read_hashmap()
@@ -74,28 +78,30 @@ class token_stream():
         return tkn
 
     def link(self):
-        self.stream.next()
-        if self.stream.next() != '\n':
-            Error("unexpected char")
+        self.chars.next()
+        if self.chars.next() != '\n':
+            Error("Line %d: unexpected char after line continuation"% self.chars.line)
         else:
             return self.read_a_token()
 
     def read_sys_call(self):
-        line, col = self.stream.line, self.stream.col
-        self.stream.next()
+        line, col = self.chars.line, self.chars.col
+        self.chars.next()
         self.read_white_space()
         command = ""
-        if self.stream.peek() == "'" and self.stream.looknext() == "'":
-            command = self.read_multi_string()
-            return token("SYSFUNC", command, line, col)
-        else:
-            while self.stream.peek() != '\n':
-                command += self.stream.next()
-            return token("SYSCALL", command, line, col)
+        if self.chars.peek() in ("'", '"'):
+            terminal_char = self.chars.next()
+            if self.check_multi_string(terminal_char):
+                command = self.read_string()
+                return token("SYSFUNC", command, line, col)
+            self.chars.back()
+        while not self.chars.eof() and self.chars.peek() != '\n':
+            command += self.chars.next()
+        return token("SYSCALL", command, line, col)
 
     def read_sep(self):
-        line, col = self.stream.line, self.stream.col
-        ch = self.stream.next()
+        line, col = self.chars.line, self.chars.col
+        ch = self.chars.next()
         if ch == ',':
             self.read_white_space(" \t\n")
             return token('SEP', 'COMMA', line, col)
@@ -103,43 +109,43 @@ class token_stream():
             return token('SEP', 'NEWLINE', line, col)
         
     def read_white_space(self, ss = " \t"):
-        while not self.stream.eof() and self.stream.peek() in ss:
-            self.stream.next()
+        while not self.chars.eof() and self.chars.peek() in ss:
+            self.chars.next()
 
     def read_var(self):
-        line, col = self.stream.line, self.stream.col
+        line, col = self.chars.line, self.chars.col
         var = ""
         is_valid = lambda x: str.isalnum(x) or x == '_'
-        while is_valid(self.stream.peek()):
-            var += self.stream.next()
-        if var in keywords:
-            return (keywords[var], var)
+        while not self.chars.eof() and is_valid(self.chars.peek()):
+            var += self.chars.next()
+        if var is "None": return ("None", None)
+        elif var in keywords: return (keywords[var], var)
         return token("VAR", var, line, col)
         
     def read_op(self):
-        line, col = self.stream.line, self.stream.col
+        line, col = self.chars.line, self.chars.col
         op = ""
-        while self.stream.peek() in '!=<>|$&:@%':
-            var += self.stream.next()
+        while self.chars.peek() in '!=<>|$&:@%':
+            var += self.chars.next()
         if op in operators: 
             return token("OP", operators[var], line, col)
         else:
-            self.stream.croak('invalid syntax')
+            self.chars.croak('Undefined operator')
 
     def read_pair(self, tp, end_ch):
-        line, col = self.stream.line, self.stream.col
+        line, col = self.chars.line, self.chars.col
         val = []
-        self.stream.next()
-        while not self.stream.eof():
+        self.chars.next()
+        while not self.chars.eof():
             self.read_white_space(" \t\n")
-            ch = self.stream.peek()
+            ch = self.chars.peek()
             if ch == end_ch:
-                self.stream.next()
+                self.chars.next()
                 return token(tp, val, line, col)
             else:
                 val.append(self.read_a_token())
 
-        self.stream.croak('missing ' + end_ch)
+        self.chars.croak('snytax error: missing ' + end_ch)
 
     def read_list(self):
         return self.read_pair("LIST", ']')
@@ -151,47 +157,51 @@ class token_stream():
         return self.read_pair("PARN",')')
 
     def read_num(self):
-        line, col = self.stream.line, self.stream.col
+        line, col = self.chars.line, self.chars.col
         ns = ""
         has_e = False
-        while True:
-            ch = self.stream.next()
-            if str.isdigit(ch) or ch =='.':
+        while not self.chars.eof():
+            ch = self.chars.next()
+            if str.isdigit(ch) or ch in '.Ee':
                 ns += ch
-                has_e = False
-            else if ch == 'E' or ch == 'e':
+                if ch in "Ee": has_e = True
+            elif has_e and (ch == '+' or ch == '-'):
                 ns += ch
-                has_e = True
-            else if has_e and (ch == '+' or ch == '-'):
-                ns += ch
-                has_e = False
             else:
-                return token("NUM", num(ns), line, col)
+                break
+
+            if ch in "Ee": has_e = True
+            else: has_e = False
+        return token("NUM", num(ns), line, col)
 
     def read_dot(self):
-        line, col = self.stream.line, self.stream.col
-        if str.isdigit(self.stream.looknext()): return self.read_num()
-        else: return token('DOT', '.', line, col)
+        line, col = self.chars.line, self.chars.col
+        self.chars.next()
+        if str.isdigit(self.chars.peek()): 
+            self.back()
+            return self.read_num()
+        else: 
+            return token('DOT', '.', line, col)
 
     def check_multi_string(self, tc):
-        if tc != self.stream.peek() or tc != self.stream.looknext():
-            return False
-        self.stream.next(), self.stream.next()
+        if tc != self.chars.peek():  return False
+        if self.chars.eof() or tc != self.chars.looknext(): return False
+        self.chars.next(), self.chars.next()
         return True
 
     def read_string(self):
-        line, col = self.stream.line, self.stream.col
+        line, col = self.chars.line, self.chars.col
         val = ""
-        terminal_char = self.stream.next()
+        terminal_char = self.chars.next()
         is_multi = self.check_multi_string(terminal_char)
-        while not self.stream.eof():
-            ch = self.stream.next()
+        while not self.chars.eof():
+            ch = self.chars.next()
             if isEscape:
                 isEscape = False
                 if ch in escape_table: val += escape_table[ch]
                 else: val += "\\" + ch
             elif ch == '\n':
-                self.stream.croak('missing %s'%terminal_char)
+                self.chars.croak('missing %s'%terminal_char)
                 #Error()
             elif ch == '\\':
                 isEscape = True
@@ -201,4 +211,4 @@ class token_stream():
             else:
                 val += ch
 
-        self.stream.croak('missing %s'%terminal_char)
+        self.chars.croak('syntax error: missing %s'%terminal_char)

@@ -13,14 +13,15 @@ class Env(dict):
 
 ast_stream = None
 
-def parse(env):
-    tp = ast_stream.peek()["type"]
+def parse(node, env):
+    tp = node["type"]
     if tp == 'DEF': 
-        parse_def(node, env)
+        val = parse_def(node, env)
     elif tp == 'IMPORT': 
-        parse_import(node, env)
+        val = parse_import(node, env)
     else:
-        parse_block_expr(node, env)
+        val = parse_block_expr(node, env)
+    return val
 
 def gen_partial(f, env):
     return lambda node: f(node,env)
@@ -36,29 +37,26 @@ def parse_block_expr(node, env):
         val = parse_binary_expr(node, env)
     return val
 
-def parse_assign(env):
-    var = token.cur[1]
-    token._next(2)
-    val = parse_expr(node, env)
-    def assign(env):
-        env[var ] = val()
-    return assign
-
 def parse_import(env):
     pass
 
-def parse_oper(oper_type):
-    if oper_type in Unary:
-        return Unary[oper_type]
-    else if oper_type in Binary:
-        return Binary[oper_type]
-    Error()
-    return None
+def parse_bi_oper(node, env):
+    op_info = {"name": node["val"], 
+               "order": op_order(node["val"] ),
+               "right": node["val"] in op_right,
+               "func" : Binary[node["val"]]
+               }
+    return op_info
+
+def parse_un_oper(node, env):
+    op_info = {"name": node["val"], 
+               "func" : Unary[node["val"]] }
+    return op_info
 
 def parse_binary_expr(node, env):
-    vals = map(gen_partial(parse_unary, env), node["val"])
-    ops  = map(gen_partial(parse_op, env), node["op"])
-    assert(len(vals) == len(ops) + 1)
+    vals = map(gen_partial(parse_unary, env), node["vals"])
+    ops  = map(gen_partial(parse_bi_oper, env), node["ops"])
+    #assert(len(vals) == len(ops) + 1)
 
     def compute_expr():
         def binary_order(left):
@@ -73,7 +71,7 @@ def parse_binary_expr(node, env):
             if len(ops) > 0:
                 his_op = ops[0]
                 if his_op["order"] > my_op["order"] or \
-                    (his_op["order"] == my_op["order"] and not his_op["left"] ):
+                    (his_op["order"] == my_op["order"] and his_op["right"] ):
                     ops.pop(0)
                     right = binary_order(right)
 
@@ -84,6 +82,10 @@ def parse_binary_expr(node, env):
         return binary_order(left)
     
     return compute_expr
+
+def parse_unary(node, env):
+    node["prefix"]
+    
 
 # function call; var; literal value; unary operator
 def parse_val_expr(node, env):
@@ -110,7 +112,7 @@ def parse_val_expr(node, env):
         atom = parse_partial(node, env)
     elif t_type is 'LAMBDA':
         atom = parse_lambda(node, env)
-    elif t_type is 'SIMPLE_IF':
+    elif t_type is 'SIMPLEIF':
         atom = parse_simple_if(node, env)
     if op_func:
         return lambda : op_func(atom())
@@ -129,7 +131,7 @@ def parse_dict():
     def _dict():
         t_key = map(lambda f: f(env), keys) 
         t_val = map(lambda f: f(env), vals) 
-        return {}.update(zip(t_key, t_val)
+        return {}.update(list(zip(t_key, t_val)))
     return _dict
         
 def return_none(env = {}):
@@ -192,7 +194,10 @@ def parse_var(node, env):
     return find
     
 def parse_block(node, env):
-    pass
+    exprs = map(gen_partial(parse, env), node)
+    def squence_do():
+        for expr in exprs: expr(env)
+    return squence_do
 
 def parse_def(node, env):
     args = node["args"]
@@ -212,14 +217,16 @@ def parse_def(node, env):
         r_vals = [a(env) for a in args_vals]
         av = list(zip(args + default_args, r_vals))
         new_env.update(av)
-        av = [ (k,v(env) ) for k,v in de_arg_vals ]
-        new_env.update(av)
+        new_env.update(de_arg_vals)
+        body_f = parse_block(node["body"], new_env)
 
-        try:
-            body_f = parse_block(node["body"], new_env)
-            return None
-        except v:
-            return v
+        def _run():
+            try:
+                body_f(env)
+                return None
+            except v:
+                return v
 
-
-
+        return _run()
+    env[node["funcname"]] = proc
+    return proc
