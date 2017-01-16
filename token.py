@@ -63,7 +63,7 @@ class token_list():
             tokens.append(tkn)
         
     def read_a_token(self):
-        self.read_white_space(" \t\n")
+        self.read_white_space(" \t")
         if self.chars.eof(): return None
         ch = self.chars.peek()
         if ch in ('"', "'"): tkn = self.read_string()
@@ -129,7 +129,9 @@ class token_list():
         op = ""
         while self.chars.peek() in '!=<>|$&:@%':
             var += self.chars.next()
-        if op in operators: 
+        if op in special_op:
+            return token(special_op[op], op, line, col)
+        elif op in operators: 
             return token("OP", operators[var], line, col)
         else:
             self.chars.croak('Undefined operator')

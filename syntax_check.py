@@ -15,7 +15,6 @@ def syntax_assert(tkn, need_tkn,  errstr = "", not_ = False):
         Error(error_msg)
     return True
 
-def syntax_assert(cond,  errstr = "", not_ = False):
-    if not syntax_check(tkn, need_tkn, not_):
-        Error(error_msg)
+def syntax_cond_assert(cond,  errstr = "", not_ = False):
+    if not cond: Error(error_msg)
     return True

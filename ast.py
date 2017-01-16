@@ -19,8 +19,25 @@ class AST():
             elif stm.peek().tp in ['IF', 'FOR', 'WHILE']:
                 return self.ast_control(stm)
             else:
-                return self.ast_expr(stm)
+                return self.ast_try_pattern_assign(stm)
 
+    def ast_assign_helper(self, stm, tp):
+        tkn = self.tokens.peek()
+        if tkn.tp is "VAR" and not stm.eof() and stm.looknext().tp is tp:
+            var = self.ast_pattern_var(stm)
+            syntax_assert(self.stm.next(), "ASSIGN", "error missing =")
+            val = self.ast_try_assign(stm)
+            return {"type":tp, "var":var, "val":val}
+        return None
+
+    def ast_try_pattern_assign(self, stm):
+        t = ast_assign_helper(stm, "PASSIGN"):
+        return self.ast_try_assign(stm) if t is None else t
+
+    def ast_try_assign(self, stm):
+        t = ast_assign_helper(stm, "ASSIGN"):
+        return self.ast_expr(stm) if t is None else t
+        
     def ast_import(self, stm):
         
         return ("IMPORT", packages)
@@ -44,7 +61,7 @@ class AST():
         elif stm.peek().tp is "RETURN":
             return ast_return(stm)
         else:
-            return self.ast_expr(stm)
+            return self.ast_try_pattern_assign(stm)
 
     def ast_bc(self, stm):
         tp = stm.next().tp
@@ -55,7 +72,7 @@ class AST():
         stm.next()
         expr = self.ast_expr(stm)
         self.check_newline(stm)
-        return {"type": "RETURN", "rval": expr }
+        return {"type": "RETURN", "rval": expr}
 
     def ast_control(self, stm):
         tkn = stm.peek()
@@ -68,15 +85,32 @@ class AST():
 
     def ast_parn(self, stm):
         vals = []
-        is_tuple = False
+        default_args, default_vals = [], []
+        is_tuple, is_assign = False, False
         while not stm.eof():
-            vals.append(self.parse_expr(stm))
+            t = self.ast_try_assign(stm)
+            if is_assign:
+                syntax_cond_assert( t["type"] is "ASSIGN", "error undefault args follow default args")
+            if t["type"] is "ASSIGN":
+                is_assign = True
+                syntax_cond_assert(t["val"]["type"] != "ASSIGN", "unexpected continue assign")
+            if is_assign:
+                default_args.append(t["var"]["name"])
+                default_vals.append(t["val"])
+            else:
+                vals.append(t)
             if not stm.eof():
                 is_tuple = True
                 syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
         tp = "PARN"
         if is_tuple or len(vals) == 0: tp = "TUPLE"
-        return {"type":tp, "val":vals}
+        if is_assign:
+            return {"type":"ARGS", "val":vals, 
+                 "default_args": default_args, "default_vals":default_vals}
+        elif is_tuple or len(vals) == 0:
+            return {"type":"TUPLE", "val":vals}
+        else:
+            return {"type":"PARN", "val":vals}
                 
     def check_expr_end(self, stm):
         if not stm.eof():
@@ -110,28 +144,16 @@ class AST():
         args = ast_args(stream(stm.next().val))
         body = self.ast_body(self.ast_func_body)
         syntax_assert(stm.next(), "END", "missing END")
-        return {"type":'DEF', "funcname":funcname, 
+        return {"type":'DEF', "funcname":funcname["val"], 
                 "args":args, "body":body}
         
-    def ast_args(self, stm, is_end_tkn):
-        args, default_args, default_vals = [], [], []
-        need_default = False
-        while not stm.eof():
-            arg = self.ast_a_var(stm)
-            if need_default or \
-                (not stm.eof() and syntax_check(stm.looknext(),("SEP","COMMA"), _not=True)):
-                syntax_assert(stm.next(), ("OP","ASSIGN"), \
-                      "non-default argument follows default argument")
-                default_value = self.ast_expr(stm)
-                default_args.append(arg)
-                default_vals.append(default_value)
-                need_default = True
-
-            if not stm.eof():
-                syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma")
-        return {"type":"ARGS", "args":args, 
-                "default_args":default_args, 
-                "default_vals":default_vals}
+    def ast_args(self, stm):
+        t = self.ast_parn(stm)
+        if t["type"] != "ARGS":
+            t["type"] = "ARGS"
+            t["default_args"] = []
+            t["default_vals"] = []
+        return t
 
     def ast_body(self, stm, parse_func = self.ast_func_body):
         body = []
@@ -150,7 +172,7 @@ class AST():
     def ast_a_var(self, stm, error_msg = "expect a variable"):
         tkn = stm.next()
         syntax_assert(tkn.tp,"VAR", error_msg)
-        return tkn.val
+        return {"type":"VAR", "name":tkn.val}
 
     def ast_if(self, stm):
         stm.next(); tkn = stm.next()
@@ -188,7 +210,7 @@ class AST():
         if len(variables) > 1: 
             return ("PATTERNVAR", variables)
         else:
-            return ("VAR", variables[0])
+            return variables[0]
 
     def ast_in(self, stm):
         var = self.ast_pattern_var(stm)

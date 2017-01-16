@@ -16,6 +16,12 @@ operators = {
     "<=": "LE",
     ">=": "GE",
     "!=": "NEQ",
+    ".": "DOT",
+}
+
+special_op = {
+    '::': 'PASSIGN',
+    '=': 'ASSIGN',
 }
 
 op_order = {
@@ -57,8 +63,8 @@ def _write(var, filename):
 def _append(var, filename):
     _write_helper(var, filename, 'a')
 
-def _call(f, *args):
-    return f(*args)
+def _call(f, arg):
+    return f(*arg[0], **arg[1])
 
 def _get_dict(v, k):
     r = [v[ki] if ki in v else None for ki in k]
@@ -96,7 +102,7 @@ Binary = {
 Unary = {
     'OSCALL', None,
     'NOT': _not,
-    "PARN": _call,
+    "CALL": _call,
     "GET" : _get,
     "RETURN": _return,
 }
