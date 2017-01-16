@@ -1,4 +1,24 @@
 from buildin_operators import operators, op_order, Binary, Unary
+import copy
+
+
+class Return_exception(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repe(self.value)
+
+class Continue_exception(Exception):
+    def __init__(self):
+        self.value = "continue"
+    def __str__(self):
+        return repe(self.value)
+
+class Break_exception(Exception):
+    def __init__(self):
+        self.value = "break"
+    def __str__(self):
+        return repe(self.value)
 
 class Env(dict):
     "An environment: a dict of {'var':val} pairs, with an outer Env."
@@ -33,13 +53,35 @@ def parse_block_expr(node, env):
         val = parse_while(node, env)
     elif node["type"] == "FOR":
         val = parse_for(node, env)
+    elif node["type"] in ["BREAK", "CONTINUE", "RETURN"]:
+        val = parse_flow_goto(node, env)
+    else:
+        val = parse_expr(node, env)
+    return val
+
+def parse_expr(node, env):
+    if node["type"] == "SIMPLEIF":
+        val = parse_simpleif_expr(node, env)
     else:
         val = parse_binary_expr(node, env)
     return val
 
+def parse_flow_goto(node, env):
+    if node["type"] == "RETURN":
+        return parse_return(node, env)
+    elif node["type"] == "BREAK":
+        val = Break_exception()
+    else:
+        val = Continue_exception()
+    return lambda: raise val
+
 def parse_import(env):
     pass
 
+def parse_return(node, env):
+    val = parse_expr(node["rval"], env)
+    return lambda: raise Return_exception(val)
+    
 def parse_bi_oper(node, env):
     op_info = {"name": node["val"], 
                "order": op_order(node["val"] ),
@@ -54,20 +96,23 @@ def parse_un_oper(node, env):
     return op_info
 
 def parse_binary_expr(node, env):
-    vals = map(gen_partial(parse_unary, env), node["vals"])
-    ops  = map(gen_partial(parse_bi_oper, env), node["ops"])
+    g_vals = map(gen_partial(parse_unary, env), node["vals"])
+    g_ops  = map(gen_partial(parse_bi_oper, env), node["ops"])
     #assert(len(vals) == len(ops) + 1)
 
     def compute_expr():
+        vals = copy.copy(g_vals)
+        ops = copy.copy(g_ops)
+
         def binary_order(left):
-            if len(ops) > 0: my_op = ops.pop(0)
-            else: return left
+            if len(ops) <= 0: return left
+            my_op = ops.pop(0)
 
             # Logic short circuit
             if (my_op["name"] == 'OR' and left ) || (my_op["name"] == 'AND' and (not left)):
                 return left
 
-            right = vals.pop(0)()
+            right = vals.pop(0)
             if len(ops) > 0:
                 his_op = ops[0]
                 if his_op["order"] > my_op["order"] or \
@@ -84,9 +129,18 @@ def parse_binary_expr(node, env):
     return compute_expr
 
 def parse_unary(node, env):
-    node["prefix"]
+    prefix_ops = map(parse_un_oper, node["prefix"])
+    prefix_ops.reverse()
+    obj = parse_val_expr(node["obj"], env)
+    suffix_ops = node["suffix"]
     
-
+    def _unary():
+        v = obj()
+        for sf in suffix_ops: v = sf(v)
+        for pf in prefix_ops: v = pf(v)
+        return v
+    return _unary
+        
 # function call; var; literal value; unary operator
 def parse_val_expr(node, env):
     op_func = None
@@ -98,7 +152,7 @@ def parse_val_expr(node, env):
         atom = parse_var(node, env)
     elif t_type is 'LIST': 
         atom = parse_list(node, env)
-    elif t_type is 'TUPLE': 
+    elif t_type is 'TUPLE':
         atom = parse_tuple(node, env)
     elif t_type is 'DICT': 
         atom = parse_dict(node, env)
@@ -108,18 +162,14 @@ def parse_val_expr(node, env):
         atom = parse_string(node, env)
     elif t_type is 'FUNC':
         atom = parse_func_call(node, env)
-    elif t_type is 'PARTIAL':
-        atom = parse_partial(node, env)
     elif t_type is 'LAMBDA':
         atom = parse_lambda(node, env)
-    elif t_type is 'SIMPLEIF':
-        atom = parse_simple_if(node, env)
     if op_func:
         return lambda : op_func(atom())
 
 def parse_list(node, env):
     l_vals = map(gen_parse(parse_expr, env), node["val"]))
-    return lambda: map(lambda f: f(env), l_vals) 
+    return lambda: map(lambda f: f(), l_vals) 
 
 def parse_tuple(env):
     val = parse_list(node, env)
@@ -141,20 +191,21 @@ def parse_if(node, env):
     cond = parse_expr(node["cond"], env)
     then_f = parse_block(node["then"], env)
     else_f = parse_block(node["else"], env)
-    return lambda : then_f(env) if cond(env) else else_f(env)
+    return lambda : then_f() if cond() else else_f()
 
 def parse_for(node, env):
     in_f = parse_in(node["in"], env)
-    cond = parse_expr(node["cond"], env)
     body_f = parse_block(node["body"], env)
 
     def _for():
-        g = in_f(env)
-        while True:
+        iters = in_f()
+        for g in iters:
             try:
-                env.update(next(g))
-                if cond(env): body_f(env)
-            except StopIteration:
+                env.update(g)
+                body_f()
+            except Continue_exception:
+                continue
+            except Break_exception:
                 break
         
     return _for
@@ -167,10 +218,18 @@ def parse_while(node, env):
     body_f = parse_block(node["body"], env)
     
     def _while():
-        while cond(env):
-            body_f(env)
+        while cond():
+            try:
+                body_f()
+            except Continue_exception:
+                continue
+            except Break_exception:
+                break
 
     return _while
+
+def parse_syscall(node, env):
+    return lambda: sys.popen(node["val"])
 
 # Q default args
 def parse_lambda(node, env):
@@ -193,10 +252,18 @@ def parse_var(node, env):
         return t[var]
     return find
     
+def squence_do(pf, exprs):
+    exprs_lambda = map(pf, exprs)
+    def _do():
+        for expr in exprs_lambda:
+            expr()
+
 def parse_block(node, env):
     exprs = map(gen_partial(parse, env), node)
     def squence_do():
-        for expr in exprs: expr(env)
+        for expr in exprs: 
+            expr()
+        return ("SUCCESS", None)
     return squence_do
 
 def parse_def(node, env):
@@ -218,14 +285,15 @@ def parse_def(node, env):
         av = list(zip(args + default_args, r_vals))
         new_env.update(av)
         new_env.update(de_arg_vals)
-        body_f = parse_block(node["body"], new_env)
+        pf = gen_partial(parse, env)
+        body_f = squence_do(pf, node["body"])
 
         def _run():
             try:
                 body_f(env)
                 return None
-            except v:
-                return v
+            except Return_exception as r:
+                return r.value
 
         return _run()
     env[node["funcname"]] = proc

@@ -16,8 +16,10 @@ keywords = {
 'while': "WHILE",
 'for'  : "FOR",
 "None" : None,
-"Nil"  : "NIL"
-"return": "RETURN"
+"Nil"  : "NIL",
+"return": "RETURN",
+"break": "BREAK",
+"continue" : "CONTINUE",
 }
 
 escape = {

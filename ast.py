@@ -1,16 +1,6 @@
 from stream import stream
 import sys
 
-'''
-    def ast_not_if_expr(self, stm):
-        tkn = stm.peek()
-        if tkn.tp is "PARN":
-            stm.next()
-            return self.ast_parn_expr(tkn.val, self.check_eof)
-        else:
-            return self.ast_binary_expr(stm)
-'''
-
 class AST():
     
     def __init__(self, tokens):
@@ -26,8 +16,10 @@ class AST():
                 self.ast.append(self.ast_def(self.tokens))
             elif tkn.tp in 'IMPORT':
                 self.ast.append(self.ast_import(self.tokens))
+            elif stm.peek().tp in ['IF', 'FOR', 'WHILE']:
+                return self.ast_control(stm)
             else:
-                self.ast.append(self.ast_block_expr(self.tokens))
+                return self.ast_expr(stm)
 
     def ast_import(self, stm):
         
@@ -47,8 +39,23 @@ class AST():
     def ast_block_expr(self, stm):
         if stm.peek().tp in ['IF', 'FOR', 'WHILE']:
             return self.ast_control(stm)
+        elif stm.peek().tp in ["BREAK", "CONTINUE"]:
+            return self.ast_bc(stm)
+        elif stm.peek().tp is "RETURN":
+            return ast_return(stm)
         else:
             return self.ast_expr(stm)
+
+    def ast_bc(self, stm):
+        tp = stm.next().tp
+        self.check_newline(stm)
+        return {"type": tp}
+
+    def ast_return(self, stm):
+        stm.next()
+        expr = self.ast_expr(stm)
+        self.check_newline(stm)
+        return {"type": "RETURN", "rval": expr }
 
     def ast_control(self, stm):
         tkn = stm.peek()
@@ -68,8 +75,7 @@ class AST():
                 is_tuple = True
                 syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
         tp = "PARN"
-        if is_tuple or len(vals) == 0:
-            tp = "TUPLE"
+        if is_tuple or len(vals) == 0: tp = "TUPLE"
         return {"type":tp, "val":vals}
                 
     def check_expr_end(self, stm):
@@ -188,6 +194,7 @@ class AST():
         var = self.ast_pattern_var(stm)
         syntax_assert(stm.next(), "IN", "error syntax in for setence", True)
         val = self.ast_expr(stm)
+        check_eof(stm)
         return {"type":"IN", "ISPATTERN":var[0], "var":var[1], "val":val }
 
     def ast_unary(self, stm):
@@ -217,7 +224,8 @@ class AST():
             if op is None: break
             ops.append(op)
             vals.append(self.ast_unary(stm))
-        return {"type":"BIEXPR", "vals":vals, "ops":ops}
+        if len(ops) == 0: return vals[0]
+        else: return {"type":"BIEXPR", "vals":vals, "ops":ops}
 
     def ast_try_op(stm):
         tkn = stm.peek()
