@@ -17,6 +17,8 @@ operators = {
     ">=": "GE",
     "!=": "NEQ",
     ".": "DOT",
+    "is":"IS",
+    "in":"IN",
 }
 
 special_op = {
@@ -27,10 +29,10 @@ special_op = {
 op_order = {
     'WRITE':1,
     'APPEND':1,
-    "ASSIGN": 2,
     "OR": 3,
     "AND": 4,
-    "PIPE": 5,
+    "IS": 5, "IN": 5
+    "PIPE": 6,
     "LT": 7, "GT": 7, "LE": 7, "GE": 7, "EQUAL": 7, "NEQ": 7,
     "ADD": 10, "MINUS": 10,
     "MUL": 20, "DIV": 20, "MOD": 20,
@@ -51,6 +53,8 @@ _and = lambda x,y: x and y
 _or = lambda x,y: x or y 
 _not = lambda x: not x
 _pipe = lambda x: f(x)
+_in  = lambda x,y: x in y
+_is  = lambda x,y: x is y
 
 def _write_helper(var, filename, mode):
     var = str(var)
@@ -96,6 +100,8 @@ Binary = {
     'ASSIGN': _assign,
     'AND':    _and,
     'OR':     _or,
+    "IS":     _is,
+    "IN":     _in,
 }
 
 

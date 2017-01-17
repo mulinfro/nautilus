@@ -121,6 +121,7 @@ class token_list():
         while not self.chars.eof() and is_valid(self.chars.peek()):
             var += self.chars.next()
         if var is "None": return ("None", None)
+        elif var in ("is", "in"): return ("OP", operators[var])
         elif var in keywords: return (keywords[var], var)
         return token("VAR", var, line, col)
         
