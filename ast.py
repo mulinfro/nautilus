@@ -39,8 +39,21 @@ class AST():
         return self.ast_expr(stm) if t is None else t
         
     def ast_import(self, stm):
-        
-        return ("IMPORT", packages)
+        stm.next()
+        packages = []
+        while True:
+            module  = [ self.ast_a_var(stm)["name"] ]
+            while stm.eof() and stm.peek().tp == "DOT": 
+                stm.next()
+                module.append( self.ast_a_var(stm)["name"] )
+            packages.append(module)
+            if stm.eof(): break
+            if syntax_check(stm.peek(), ("SEP", "NEWLINE")): 
+                stm.next()
+                break
+            syntax_assert(stm.next(), ("SEP", "COMMA"))
+            
+        return {"type":"IMPORT", "packages":packages}
 
     def ast_same_type_seq(self, stm, is_valid):
         tps = []

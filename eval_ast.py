@@ -5,19 +5,19 @@ class Return_exception(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return repe(self.value)
+        return repr(self.value)
 
 class Continue_exception(Exception):
     def __init__(self):
         self.value = "continue"
     def __str__(self):
-        return repe(self.value)
+        return repr(self.value)
 
 class Break_exception(Exception):
     def __init__(self):
         self.value = "break"
     def __str__(self):
-        return repe(self.value)
+        return repr(self.value)
 
 class Env(dict):
     "An environment: a dict of {'var':val} pairs, with an outer Env."
@@ -88,8 +88,13 @@ def parse_flow_goto(node, env):
         val = Continue_exception()
     return lambda: raise val
 
-def parse_import(env):
-    pass
+def parse_import(node, env):
+    file_path, package_name = package_path(node["packages"])
+    if find_psh_file(file_path):
+        package_env = pysh(file_path)
+    else:
+        import importlib
+        i = importlib.import_module(file_path)
 
 def parse_assign(node, env):
     val = parse_expr(node["val"], env)

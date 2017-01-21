@@ -43,6 +43,8 @@ op_right = {
     "EQUAL": 2,
 }
 
+py_builtin_funcs = vars(__builtins__)
+
 _add = lambda x,y: x + y
 _minus = lambda x,y: x - y    
 _mul = lambda x,y: x * y    
