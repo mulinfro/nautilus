@@ -23,7 +23,7 @@ class AST():
 
     def ast_assign_helper(self, stm, tp):
         tkn = self.tokens.peek()
-        if tkn.tp is "VAR" and not stm.eof() and stm.looknext().tp is tp:
+        if tkn.tp is "VAR" and not stm.eof() and stm.looknext().tp in tps:
             var = self.ast_pattern_var(stm)
             syntax_assert(self.stm.next(), "ASSIGN", "error missing =")
             val = self.ast_try_assign(stm)
@@ -31,29 +31,46 @@ class AST():
         return None
 
     def ast_try_pattern_assign(self, stm):
-        t = ast_assign_helper(stm, "PASSIGN"):
+        t = ast_assign_helper(stm, ("PASSIGN", ))
         return self.ast_try_assign(stm) if t is None else t
 
     def ast_try_assign(self, stm):
-        t = ast_assign_helper(stm, "ASSIGN"):
+        t = ast_assign_helper(stm, ("ASSIGN", "GASSIGN"))
         return self.ast_expr(stm) if t is None else t
         
     def ast_import(self, stm):
-        stm.next()
-        packages = []
-        while True:
+        _from, _import, _as = "", [], []
+        parent_dir_num = -1
+
+        def ast_dots():
             module  = [ self.ast_a_var(stm)["name"] ]
-            while stm.eof() and stm.peek().tp == "DOT": 
+            while not stm.eof():
+                if stm.peek().tp != "DOT": break
+                module.append(self.ast_dot(stm)["attribute"])
+            return module
+
+        def seq_ast_dots(seq):
+            while True:
+                seq.append(ast_dots())
+                if stm.eof() or not syntax_check(stm.peek(), ("SEP", "COMMA")):
+                    break
+
+        if stm.peek().tp == "FROM":
+            stm.next()
+            while stm.peek().tp == "DOT":
                 stm.next()
-                module.append( self.ast_a_var(stm)["name"] )
-            packages.append(module)
-            if stm.eof(): break
-            if syntax_check(stm.peek(), ("SEP", "NEWLINE")): 
-                stm.next()
-                break
-            syntax_assert(stm.next(), ("SEP", "COMMA"))
+                parent_dir_num = parent_dir_num + 1
+            _from = ast_dots()
+        syntax_assert(stm.next().tp, "IMPORT") 
+        seq_ast_dots(_import)
+
+        if stm.peek().tp == "AS":
+            seq_ast_dots(_as)
+        if not stm.eof():
+            syntax_assert(stm.next(), ("SEP", "NEWLINE"))
             
-        return {"type":"IMPORT", "packages":packages}
+        return {"type":"IMPORT", "p_num": parent_dir_num, 
+                "from":_from, "import":_import, "as":_as}
 
     def ast_same_type_seq(self, stm, is_valid):
         tps = []
@@ -255,7 +272,7 @@ class AST():
                 break
         return {"type":"SUFFIXOP", "val":tps}
 
-    def parse_dot(self, stm):
+    def ast_dot(self, stm):
         stm.next()
         var = self.ast_a_var(stm)
         return {"type":"DOT", "attribute": var["name"]}
@@ -329,4 +346,3 @@ class AST():
             if not stm.eof():
                 syntax_assert(("SEP","COMMA"), stm.next(), "missing comma ,")
         return {"type":"DICT", "key":key, "val":val}
-        

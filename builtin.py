@@ -24,6 +24,7 @@ operators = {
 special_op = {
     '::': 'PASSIGN',
     '=': 'ASSIGN',
+    ':=': 'GASSIGN',
 }
 
 op_order = {
@@ -83,7 +84,7 @@ def _get(v, k):
     else: return [v[ki] for ki in k]
 
 def _assign(var, val, env):
-    env[var] = val()
+    env[var] = val
     return val
 
 def _return(v):

@@ -20,6 +20,8 @@ keywords = {
 "return": "RETURN",
 "break": "BREAK",
 "continue" : "CONTINUE",
+"import":  "IMPORT",
+"from" :  "FROM",
 }
 
 escape = {

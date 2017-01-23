@@ -24,6 +24,7 @@ class Env(dict):
     def __init__(self, parms=(), args=(), outer=None):
         self.update(zip(parms, args))
         self.outer = outer
+        self.globals = outer.globals if outer else self
     def find(self, var):
         "Find the innermost Env where var appears."
         if (var in self): return self
@@ -89,17 +90,46 @@ def parse_flow_goto(node, env):
     return lambda: raise val
 
 def parse_import(node, env):
-    file_path, package_name = package_path(node["packages"])
-    if find_psh_file(file_path):
+
+    import sys, os, importlib
+    def get_module_path(_from, p_num):
+        path = "/".join(_from)
+        parents = "../" * p_num
+        t = sys.argv[0] + "/" + parents + path
+        path = os.path.realpath(t)
+        return path
+
+    def find_psh_file(path):
+        if os.path.isfile(path):
+            return (True, False)
+        elif os.path.exists(path):
+            return (False, True)
+        else:
+            return (False, False)
+
+    def python_import(_from, _import):
+        fromlist = [_from] if _from else []
+        for m in _import:
+            t = __import__(_import, fromlist = fromlist)
+
+    module_path = get_module_path(node["from"], node["p_num"])
+    isfile, isdir = find_psh_file(module_path)
+    if isfile or isdir:
         package_env = pysh(file_path)
     else:
-        import importlib
+        _from = "." *(p_num+1) + ".".join(node["from"]).strip()
+        _import = [ ".".join(v) for v in node["import"] ]
+        python_import(_from, _import, _as)
+
         i = importlib.import_module(file_path)
 
 def parse_assign(node, env):
     val = parse_expr(node["val"], env)
     var = node["var"]["name"]
-    return lambda :env[var] = val()
+    to_env = env
+    if node["type"] == "GASSIGN":
+        to_env = env.globals
+    return lambda:to_env[var] = val()
 
 def parse_pattern_assign(node, env):
     val = parse_expr(node["val"], env)
