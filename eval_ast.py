@@ -100,28 +100,53 @@ def parse_import(node, env):
         return path
 
     def find_psh_file(path):
-        if os.path.isfile(path):
-            return (True, False)
+        if os.path.isfile( path  + ".py"):
+            return (True, False, ".py")
+        elif os.path.isfile(path + ".psh"):
+            return (True, False, ".psh")
         elif os.path.exists(path):
-            return (False, True)
+            return (False, True, False)
         else:
-            return (False, False)
+            return (False, False, False)
 
-    def python_import(_from, _import):
-        fromlist = [_from] if _from else []
-        for m in _import:
-            t = __import__(_import, fromlist = fromlist)
+    def python_import(_from, _import, _as):
+        if _from: 
+            top_module = __import__( ".".join(_from) )
+            for t in _from[1:]:
+                top_module = top_module.__getattribute__(t)
+                env[_as] = top_module.__getattribute__(_import[0])
+        else:
+            env[_as] = __import__(_import[0])
+            
+    def user_import_py(path, _as):
+        from importlib.machinery import SourceFileLoader
+        return SourceFileLoader(_as, path).load_module()
 
-    module_path = get_module_path(node["from"], node["p_num"])
-    isfile, isdir = find_psh_file(module_path)
-    if isfile or isdir:
-        package_env = pysh(file_path)
-    else:
-        _from = "." *(p_num+1) + ".".join(node["from"]).strip()
-        _import = [ ".".join(v) for v in node["import"] ]
-        python_import(_from, _import, _as)
+    def user_package_import():
+        pass
 
-        i = importlib.import_module(file_path)
+    def user_import_package(path):
+
+    def user_package_import(path, file_suffix):
+        if file_suffix == ".py":
+            return user_import_py(path + file_suffix, _as)
+        elif file_suffix == ".psh":
+            return user_import_psh(path)
+        else:
+            onlyfiles = [ f for f in os.listdir(path) ]
+            env[_as] = user_import_package(path)
+
+    _from, _import, _as = node["from"], node["import"], node["as"]
+    if len(_as) == 0:
+        if _from: _as = [ m[-1] for m in _import ]
+        else: _as = [ m[0] for m in _import ]
+    module_path = get_module_path(_from, node["p_num"] )
+    isfile, isdir, file_suffix = find_psh_file(module_path)
+    for i in range(len(_import)):
+        if isfile or isdir:
+            package_env = user_package_import(module_path, file_suffix, _import[i], _as[i])
+        else:
+            python_import(_from, _import[i], _as[i])
 
 def parse_assign(node, env):
     val = parse_expr(node["val"], env)
