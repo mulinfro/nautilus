@@ -4,7 +4,7 @@ import sys
 class AST():
     
     def __init__(self, tokens):
-        self.tokens = stream(tokens)
+        self.tokens = tokens
         self.ast = []
         build_ast()
 
