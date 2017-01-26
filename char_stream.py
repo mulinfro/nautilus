@@ -1,16 +1,17 @@
 from stream import stream
 
 class char_stream(stream):
-    self.line,  self.col = 0, 0
+    line, col = 1, 1
 
     def next(self):
         ch = self.peek()
         self.col = self.col + 1
         if ch == '\n':
-            col = 0
+            self.col = 1
             self.line = self.line + 1
         self.pos = self.pos + 1
         return ch
 
-    def croack(self, msg):
-        return "Error: %d line %d col"%(line,col)
+    def crack(self, msg):
+        import sys
+        print("Error: line %d col %d %s"%(self.line, self.col, msg), file=sys.stderr)

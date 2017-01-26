@@ -1,21 +1,21 @@
-from buildin_operators import operators, op_order, Binary, Unary
+from builtin import operators, op_order, Binary, Unary, special_op
 
 keywords = {
 'and': 'AND',
-'or' : 'OR'，
+'or' : 'OR',
 'not': 'NOT',
 'def': 'DEF',
 'lambda': 'LAMBDA',
 'if': 'IF',
 'else': 'ELSE',
-'True': 'TRUE',
-'False': 'FALSE',
+'True': ("BOOL",True),
+'False': ("BOOL",False),
 'end': 'END',
-'is' : 'IS',
-'in' : 'IN',
+'is' : ("OP", 'IS'),
+'in' : ("OP", 'IN'),
 'while': "WHILE",
 'for'  : "FOR",
-"None" : None,
+"None" : ("NONE",None),
 "Nil"  : "NIL",
 "return": "RETURN",
 "break": "BREAK",
@@ -50,6 +50,9 @@ class token():
         self.line = line
         self.col  = col
 
+    def __repr__(self):
+        return ("type:%s; val %s; line %d col %d") %(self.tp, self.val, self.line, self.col)
+
 class token_list():
     
     def __init__(self, chars):
@@ -57,7 +60,7 @@ class token_list():
         self.tokens = self.read_tokens()
 
     def read_tokens(self):
-        tokens = [None]
+        tokens = []
         while True:
             tkn = self.read_a_token()
             if tkn is None:
@@ -115,29 +118,32 @@ class token_list():
     def read_white_space(self, ss = " \t"):
         while not self.chars.eof() and self.chars.peek() in ss:
             self.chars.next()
-
+            
     def read_var(self):
         line, col = self.chars.line, self.chars.col
         var = ""
         is_valid = lambda x: str.isalnum(x) or x == '_'
         while not self.chars.eof() and is_valid(self.chars.peek()):
             var += self.chars.next()
-        if var is "None": return ("None", None)
-        elif var in ("is", "in"): return ("OP", operators[var])
-        elif var in keywords: return (keywords[var], var)
+        if var in keywords: 
+            kw = keywords[var]
+            if var in ("None", "True", "False", "is", "in"): 
+                return token(kw[0], kw[1], line, col)
+            else: 
+                return token(kw, var, line, col)
         return token("VAR", var, line, col)
         
     def read_op(self):
         line, col = self.chars.line, self.chars.col
         op = ""
-        while self.chars.peek() in '!=<>|$&:@%':
-            var += self.chars.next()
+        while self.chars.peek() in '!=<>|$&:@%+-*/$.':
+            op += self.chars.next()
         if op in special_op:
             return token(special_op[op], op, line, col)
         elif op in operators: 
-            return token("OP", operators[var], line, col)
+            return token("OP", operators[op], line, col)
         else:
-            self.chars.croak('Undefined operator')
+            self.chars.crack('Undefined operator '+op)
 
     def read_pair(self, tp, end_ch):
         line, col = self.chars.line, self.chars.col
@@ -152,7 +158,7 @@ class token_list():
             else:
                 val.append(self.read_a_token())
 
-        self.chars.croak('snytax error: missing ' + end_ch)
+        self.chars.crack('snytax error: missing ' + end_ch)
 
     def read_list(self):
         return self.read_pair("LIST", ']')
@@ -168,7 +174,7 @@ class token_list():
         ns = ""
         has_e = False
         while not self.chars.eof():
-            ch = self.chars.next()
+            ch = self.chars.peek()
             if str.isdigit(ch) or ch in '.Ee':
                 ns += ch
                 if ch in "Ee": has_e = True
@@ -177,6 +183,7 @@ class token_list():
             else:
                 break
 
+            self.chars.next()
             if ch in "Ee": has_e = True
             else: has_e = False
         return token("NUM", num(ns), line, col)
@@ -199,6 +206,7 @@ class token_list():
     def read_string(self):
         line, col = self.chars.line, self.chars.col
         val = ""
+        isEscape = False
         terminal_char = self.chars.next()
         is_multi = self.check_multi_string(terminal_char)
         while not self.chars.eof():
@@ -207,15 +215,15 @@ class token_list():
                 isEscape = False
                 if ch in escape_table: val += escape_table[ch]
                 else: val += "\\" + ch
-            elif ch == '\n':
-                self.chars.croak('missing %s'%terminal_char)
+            elif ch == '\n' and not is_multi:
+                self.chars.crack('missing %s'%terminal_char)
                 #Error()
             elif ch == '\\':
                 isEscape = True
-            else if (ch == terminal_char) and (not is_multi \
-                     or (self.check_multi_string(ch)) :
+            elif (ch == terminal_char) and (not is_multi \
+                     or self.check_multi_string(ch)) :
                 return token('STRING', val, line, col)
             else:
                 val += ch
 
-        self.chars.croak('syntax error: missing %s'%terminal_char)
+        self.chars.crack('syntax error: missing %s'%terminal_char)

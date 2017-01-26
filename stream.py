@@ -1,4 +1,4 @@
-
+from syntax_check import Error
 class stream():
     
     def __init__(self, lst, pos=0):
@@ -13,12 +13,12 @@ class stream():
         return self._stream[self.pos]
 
     def back(self):
-        pos = pos - 1
+        self.pos = self.pos - 1
         #return self.looknext()
 
     def next(self):
         ch = self.peek()
-        pos = pos + 1
+        self.pos = self.pos + 1
         return ch
 
     def eof(self):

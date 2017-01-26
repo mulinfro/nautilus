@@ -1,4 +1,4 @@
-from buildin_operators import operators, op_order, Binary, Unary
+from builtin import operators, op_order, Binary, Unary
 import copy
 
 class Return_exception(Exception):
@@ -82,12 +82,15 @@ def parse_simple_expr(node, env):
 def parse_flow_goto(node, env):
     if node["type"] == "RETURN":
         rval = parse_expr(node["rval"], env)
-        val = lambda: raise Return_exception(rval)
+        val = Return_exception(rval)
     elif node["type"] == "BREAK":
         val = Break_exception()
     else:
         val = Continue_exception()
-    return lambda: raise val
+
+    def _raise_error(val):
+        raise val
+    return lambda: _raise_error(val)
 
 def parse_import(node, env):
 
@@ -126,6 +129,7 @@ def parse_import(node, env):
         pass
 
     def user_import_package(path):
+        pass
 
     def user_package_import(path, file_suffix):
         if file_suffix == ".py":
@@ -154,7 +158,9 @@ def parse_assign(node, env):
     to_env = env
     if node["type"] == "GASSIGN":
         to_env = env.globals
-    return lambda:to_env[var] = val()
+    def _assign(v):
+        to_env[var] = v
+    return lambda: _assign(val())
 
 def parse_pattern_assign(node, env):
     val = parse_expr(node["val"], env)
@@ -179,10 +185,6 @@ def parse_simpleif_expr(node, env):
     else_t = parse_simple_expr(node["else"], env)
     return lambda: then() if cond() else else_t()
 
-def parse_return(node, env):
-    val = parse_expr(node["rval"], env)
-    return lambda: raise Return_exception(val)
-    
 def parse_bi_oper(node, env):
     op_info = {"name": node["val"], 
                "order": op_order(node["val"] ),
@@ -190,8 +192,6 @@ def parse_bi_oper(node, env):
                "func" : Binary[node["val"]] }
     return op_info
 
-def parse_un_oper(node, env):
-    return [Unary[v] for v in node["val"] ]
 
 def parse_binary_expr(node, env):
     g_vals = map(gen_partial(parse_unary, env), node["val"])
@@ -206,7 +206,7 @@ def parse_binary_expr(node, env):
             my_op = ops.pop(0)
 
             # Logic short circuit
-            if (my_op["name"] == 'OR' and left ) || (my_op["name"] == 'AND' and (not left)):
+            if (my_op["name"] == 'OR' and left ) or (my_op["name"] == 'AND' and (not left)):
                 return left
 
             right = vals.pop(0)()
@@ -241,8 +241,8 @@ def parse_args(node, env):
     return _args
     
 
-def parse_suffix_op(node, env):
-    for sn in node["val"]:
+def parse_suffix_op(ops, env):
+    for sn in ops:
         if sn["type"] in ("PARN", "TUPLE", "ARGS"):
             snv = parse_args(sn, env)
             return lambda f: Unary["CALL"](f, snv())
@@ -274,10 +274,10 @@ def parse_partial(node, env):
 
 
 def parse_unary(node, env):
-    prefix_ops = map(parse_un_oper, node["prefix"])
+    prefix_ops = [Unary[v] for v in node["prefix"] ]
     prefix_ops.reverse()
     obj = parse_val_expr(node["obj"], env)
-    suffix_ops = map(parse_suffix_op, node["suffix"])
+    suffix_ops = map(gen_partial(parse_suffix_op, env), node["suffix"])
     
     def _unary():
         v = obj()
@@ -310,7 +310,7 @@ def parse_val_expr(node, env):
     return atom
 
 def parse_list(node, env):
-    l_vals = map(gen_parse(parse_expr, env), node["val"]))
+    l_vals = map(gen_parse(parse_expr, env), node["val"])
     return lambda: map(lambda f: f(), l_vals) 
 
 def parse_tuple(env):
@@ -430,7 +430,7 @@ def parse_def(node, env):
         new_env = Env(outer = env)
         # default args, every call re-eval, update them
         r_default_vals = [a(env) for a in default_vals]
-        new_env.update(list(zip(default_args, r_default_vals))
+        new_env.update(list(zip(default_args, r_default_vals)))
         av = list(zip(args + default_args, arg_vals))
         new_env.update(av)
         new_env.update(kwargs)

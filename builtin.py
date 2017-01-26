@@ -32,7 +32,7 @@ op_order = {
     'APPEND':1,
     "OR": 3,
     "AND": 4,
-    "IS": 5, "IN": 5
+    "IS": 5, "IN": 5,
     "PIPE": 6,
     "LT": 7, "GT": 7, "LE": 7, "GE": 7, "EQUAL": 7, "NEQ": 7,
     "ADD": 10, "MINUS": 10,
@@ -44,7 +44,6 @@ op_right = {
     "EQUAL": 2,
 }
 
-py_builtin_funcs = vars(__builtins__)
 
 _add = lambda x,y: x + y
 _minus = lambda x,y: x - y    
@@ -109,7 +108,7 @@ Binary = {
 
 
 Unary = {
-    'OSCALL', None,
+    'OSCALL': None,
     'NOT': _not,
     "CALL": _call,
     "GET" : _get,
