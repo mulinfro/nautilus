@@ -2,7 +2,9 @@
 
 
 def Error(msg, tkn=None):
+    import sys
     if tkn:
+        print(tkn)
         print("Syntax Error: In line %d Col %d %s" % (tkn.line,tkn.col, msg), file=sys.stderr)
     raise Exception("ASTERROR")
 
@@ -13,8 +15,7 @@ def syntax_check(tkn, need_tkn, not_ = False):
 
 def syntax_assert(tkn, need_tkn,  errstr = "", not_ = False):
     if not syntax_check(tkn, need_tkn, not_):
-        print(tkn, need_tkn)
-        Error(errstr)
+        Error(errstr, tkn)
     return True
 
 def syntax_cond_assert(cond,  errstr = "", not_ = False):

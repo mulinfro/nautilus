@@ -1,3 +1,5 @@
+import operator
+
 operators = {
     '|': 'PIPE',
     '&>': 'WRITE',
@@ -8,13 +10,13 @@ operators = {
     '-': 'MINUS',
     '%': 'MOD',
     '$': 'OSCALL',
-    '==':'EQUAL',
     '=': 'ASSIGN',
     ':': 'COLON',
     "<": "LT",
     ">": "GT",
     "<=": "LE",
     ">=": "GE",
+    '==':'EQUAL',
     "!=": "NEQ",
     ".": "DOT",
     "is":"IS",
@@ -104,6 +106,12 @@ Binary = {
     'OR':     _or,
     "IS":     _is,
     "IN":     _in,
+    "GT":     operator.gt,
+    "GE":     operator.ge,
+    "LT":     operator.lt,
+    "LE":     operator.le,
+    "NEQ":    operator.ne,
+    "EQUAL":  operator.eq,
 }
 
 

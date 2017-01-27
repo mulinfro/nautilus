@@ -15,15 +15,17 @@ def pysh(psh_file = "test.psh"):
     env = get_builtin_env()
     with open(psh_file) as f:
         codes = char_stream(f.read())
-    print(codes._stream)
+    #print(codes._stream)
     print("\n")
     tokens = token_list(codes).tokens
     #stream(tokens)
     ast_tree = AST(stream(tokens))
+    for node in ast_tree.ast:
+        print(parse(node, env)())
+    """
     print("++++++++++++++++++++++++++++++++++", "www")
     for a in ast_tree.ast:
         print(a)
-    """
     for token in tokens:
         #print (token)
         print(token)

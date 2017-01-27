@@ -4,6 +4,22 @@ from builtin import Binary, Unary
 import sys
 
 Tautology = lambda x: True
+
+def check_expr_end(stm):
+    if not stm.eof():
+        syntax_assert(stm.next(), "SEP", "syntax error")
+
+def check_newline(stm):
+    if not stm.eof():
+        syntax_assert(stm.next(), ("SEP", "NEWLINE"), "syntax error")
+
+def check_comma(stm):
+    if not stm.eof():
+        syntax_assert(stm.next(), ("SEP", "COMMA"), "syntax error")
+
+def check_eof(stm):
+    syntax_cond_assert(stm.eof(), "syntax error")
+
 class AST():
     
     def __init__(self, tokens):
@@ -23,12 +39,14 @@ class AST():
             elif tkn.tp in ['IF', 'FOR', 'WHILE']:
                 val = self.ast_control(self.tokens)
             else:
-                print("CALLLLLLLLLL: ", tkn.tp)
+                #print("CALLLLLLLLLL: ", tkn.tp)
                 val = self.ast_try_pattern_assign(self.tokens)
 
+            '''
             for k, v in val.items():
                 print(k, "\t", v)
             print("\n")
+            '''
             self.ast.append(val)
 
     def ast_assign_helper(self, stm, tps):
@@ -46,7 +64,10 @@ class AST():
 
     def ast_try_assign(self, stm):
         t = self.ast_assign_helper(stm, ("ASSIGN", "GASSIGN"))
-        return self.ast_expr(stm, self.check_expr_end) if t is None else t
+        if t is None:
+            t = self.ast_expr(stm)
+            check_expr_end(stm)
+        return t
         
     def ast_import(self, stm):
         _from, _import, _as = "", [], []
@@ -98,20 +119,20 @@ class AST():
             return self.ast_control(stm)
         elif stm.peek().tp in ["BREAK", "CONTINUE"]:
             return self.ast_bc(stm)
-        elif stm.peek().tp is "RETURN":
-            return ast_return(stm)
+        elif stm.peek().tp == "RETURN":
+            return self.ast_return(stm)
         else:
             return self.ast_try_pattern_assign(stm)
 
     def ast_bc(self, stm):
         tp = stm.next().tp
-        self.check_newline(stm)
+        check_newline(stm)
         return {"type": tp}
 
     def ast_return(self, stm):
         stm.next()
         expr = self.ast_expr(stm)
-        self.check_newline(stm)
+        check_newline(stm)
         return {"type": "RETURN", "rval": expr}
 
     def ast_control(self, stm):
@@ -129,65 +150,53 @@ class AST():
         is_tuple, is_assign, is_partial = False, False, False
         while not stm.eof():
             t = self.ast_try_assign(stm)
-            if t["type"] is "VAR" and t["name"] is "_":  is_partial = True
+            syntax_cond_assert( t["type"] is not "GASSIGN", "syntax error unexpected global assign")
             if is_assign:
                 syntax_cond_assert( t["type"] is "ASSIGN", "error undefault args follow default args")
+
+            if t["type"] is "VAR" and t["name"] is "_":
+                is_partial = True
             if t["type"] is "ASSIGN":
                 is_assign = True
                 syntax_cond_assert(t["val"]["type"] != "ASSIGN", "unexpected continue assign")
-            if is_assign:
                 default_args.append(t["var"]["name"])
                 default_vals.append(t["val"])
             else:
                 vals.append(t)
-            if not stm.eof():
-                is_tuple = True
-                syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma ,")
         if is_assign:
             tp = "ARGS" if not is_partial else "PARTIAL"
             return {"type":tp, "val":vals, 
                  "default_args": default_args, "default_vals":default_vals}
-        elif is_tuple or len(vals) == 0:
+        elif len(vals) != 1:
             return {"type":"TUPLE", "val":vals}
         else:
             return {"type":"PARN", "val":vals}
                 
-    def check_expr_end(self, stm):
-        if not stm.eof():
-            self.check_newline(stm)
 
-    def check_newline(self, stm):
-        syntax_assert(stm.next(), "NEWLINE", False, "syntax error")
-
-    def check_eof(self, stm):
-        syntax_cond_assert(stm.eof(), "syntax error")
-
-    def ast_expr(self, stm, end_checker):
+    def ast_expr(self, stm):
         true_part = self.ast_binary_expr(stm)
         if not stm.eof() and stm.peek().tp is "IF":
             stm.next()
             cond = self.ast_binary_expr(stm)
-            syntax_assert(stm.next(), "ELSE", False, "syntax error")
+            syntax_assert(stm.next(), "ELSE", "need else branch")
             else_part = self.ast_binary_expr(stm)
-            end_checker(stm)
             return {"type":"SIMPLEIF", "then":true_part,
                     "cond":cond, "else":else_part}
 
-        end_checker(stm)
         return true_part
                 
     def ast_def(self, stm):
         stm.next()
         funcname = self.ast_a_var(stm, "need funcname")
-        if stm.peek().tp not in ("PARN", "TUPLE"): Error("")
-        args = self.ast_args(stream(stm.next().val))
+        args = self.ast_args(stm)
         body = self.ast_body(stm, self.ast_func_body)
         syntax_assert(stm.next(), "END", "missing END")
         return {"type":'DEF', "funcname":funcname["name"], 
                 "args":args, "body":body}
         
     def ast_args(self, stm):
-        t = self.ast_parn(stm)
+        syntax_assert(stm.peek(), "PARN", "need parenthese")
+        t = self.ast_parn(stream(stm.next().val))
         if t["type"] != "ARGS":
             t["default_args"], t["default_vals"] = [], []
             t["type"] = "ARGS"
@@ -215,7 +224,9 @@ class AST():
     def ast_if(self, stm):
         stm.next(); tkn = stm.next()
         syntax_assert(tkn, "PARN", "need parn")
-        cond = self.ast_expr(stream(tkn.val), self.check_eof)
+        cond_stream = stream(tkn.val)
+        cond = self.ast_expr(cond_stream)
+        check_eof(cond_stream)
         true_part = self.ast_body(stm, self.ast_block_expr)
         tkn, else_part = stm.peek(), None
         if tkn.tp is "ELSE":
@@ -234,7 +245,9 @@ class AST():
     def ast_while(self, stm):
         stm.next(); tkn = stm.next()
         syntax_assert(tkn.tp, "PARN",  "missing (")
-        cond = self.ast_expr(stream(tkn.val))
+        cond_stream = stream(tkn.val)
+        cond = self.ast_expr(cond_stream)
+        check_eof(cond_stream)
         body = self.ast_body(self, stm, self.ast_block_expr)
         syntax_assert(stm.next(), "END", "missing END")
         return {"type":"WHILE", "cond":cond, "body":body}
@@ -254,7 +267,7 @@ class AST():
         var = self.ast_pattern_var(stm)
         syntax_assert(stm.next(), ("OP", "IN"), "error syntax in for setence")
         val = self.ast_expr(stm)
-        self.check_eof(stm)
+        check_eof(stm)
         return {"type":"IN", "var":var, "val":val }
 
     def ast_unary(self, stm):
@@ -319,14 +332,11 @@ class AST():
         elif tkn.tp in ('NUM', 'STRING', 'BOOL', "SYSCALL" ,"SYSFUNC", "NONE"):
             val = {"type":tkn.tp, "val":tkn.val}
         else:
-            print( self.ast)
-            print(tkn)
             Error(tkn)
 
         return val
             
     def ast_lambda(self, stm):
-        stm.next()
         args = self.ast_args(stm)
         syntax_assert(stm.next(), ("OP", "COLON"), "lambda missing :")
         body = self.ast_expr(stm)
@@ -339,6 +349,7 @@ class AST():
             stm.next(); end = self.ast_expr(stm)
             if not stm.eof() and syntax_check(stm.peek(), ("OP", "COLON")):
                 stm.next(); interval = self.ast_expr(stm)
+        check_comma(stm)
         if end is None: return beg
         return {"type":"LISTCOM", "beg":beg, "end":end, "interval":interval}
         
@@ -346,8 +357,6 @@ class AST():
         vals = []
         while not stm.eof():
             vals.append(self.ast_list_comp(stm))
-            if not stm.eof():
-                syntax_assert(stm.next(), ("SEP","COMMA"), "missing comma ,")
         return {"type":"LIST", "val": vals}
 
     def ast_dict(self, stm):
@@ -356,6 +365,5 @@ class AST():
             key.append(self.ast_expr(stm))
             syntax_assert(stm.next(), ("OP","COLON"),  "missing colon :")
             val.append(self.ast_expr(stm))
-            if not stm.eof():
-                syntax_assert(stm.next(), ("SEP","COMMA"),  "missing comma ,")
+            check_comma(stm)
         return {"type":"DICT", "key":key, "val":val}
