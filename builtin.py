@@ -72,6 +72,7 @@ def _append(var, filename):
     _write_helper(var, filename, 'a')
 
 def _call(f, arg):
+    #print("ARGWWWW:", arg)
     return f(*arg[0], **arg[1])
 
 def _get_dict(v, k):
@@ -81,7 +82,7 @@ def _get_dict(v, k):
 
 def _get(v, k):
     if type(v) is dict: return _get_dict(v,k)
-    if len(k) == 1: return v[k]
+    if len(k) == 1: return v[k[0]]
     else: return [v[ki] for ki in k]
 
 def _assign(var, val, env):

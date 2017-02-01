@@ -154,7 +154,7 @@ class AST():
             if is_assign:
                 syntax_cond_assert( t["type"] is "ASSIGN", "error undefault args follow default args")
 
-            if t["type"] is "VAR" and t["name"] is "_":
+            if t["type"] == "VAR" and t["name"] == "_":
                 is_partial = True
             if t["type"] is "ASSIGN":
                 is_assign = True
@@ -163,7 +163,7 @@ class AST():
                 default_vals.append(t["val"])
             else:
                 vals.append(t)
-        if is_assign:
+        if is_assign or is_partial:
             tp = "ARGS" if not is_partial else "PARTIAL"
             return {"type":tp, "val":vals, 
                  "default_args": default_args, "default_vals":default_vals}
@@ -197,9 +197,7 @@ class AST():
     def ast_args(self, stm):
         syntax_assert(stm.peek(), "PARN", "need parenthese")
         t = self.ast_parn(stream(stm.next().val))
-        if t["type"] != "ARGS":
-            t["default_args"], t["default_vals"] = [], []
-            t["type"] = "ARGS"
+        t["type"] = "ARGS"
         return t
 
     def ast_body(self, stm, parse_func):
@@ -256,7 +254,7 @@ class AST():
         variables = [self.ast_a_var(stm)]
         while syntax_check(stm.peek(), "PASSIGN"):
             stm.next()
-            variables.append(self.ast_a_var(stm))
+            variables.append(self.ast_a_var(stm)["name"])
 
         if len(variables) > 1: 
             return {"type":"PATTERNVAR", "variables":variables}

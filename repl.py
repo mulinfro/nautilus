@@ -1,7 +1,8 @@
 from stream import stream
 from char_stream import char_stream
 from eval_ast import parse, Env
-from ast import AST
+from ast_dict import AST
+from tokens import token_list
 
 builtins = locals()["__builtins__"]
 
@@ -48,10 +49,14 @@ def REPL():
         cmd = ""
             
         if not multiline_string_sep and block_num == 0:
-            fragment = char_stream("\n".join(cmdlines) )
-            ast_tree = AST(fragment)
-            fval = parse(ast_tree.ast, env)
-            print(fval())
+            fragment = char_stream("\n".join(cmdlines) +"\n")
+            print("CMDLINES", cmdlines)
+            cmdlines = []
+            tokens = token_list(fragment).tokens
+            ast_tree = AST(stream(tokens))
+            for node in ast_tree.ast:
+                fval = parse(node, env)
+                print(":> ", fval())
             
 
 def pysh(psh_file):

@@ -24,7 +24,7 @@ keywords = {
 "from" :  "FROM",
 }
 
-escape = {
+escape_table = {
     'n' : '\n',
     'r' : '\r',
     't' : '\t',

@@ -6,7 +6,7 @@ def Error(msg, tkn=None):
     if tkn:
         print(tkn)
         print("Syntax Error: In line %d Col %d %s" % (tkn.line,tkn.col, msg), file=sys.stderr)
-    raise Exception("ASTERROR")
+    raise Exception(msg)
 
 def syntax_check(tkn, need_tkn, not_ = False):
     if type(need_tkn) is tuple: flag = (tkn.tp, tkn.val) == need_tkn 

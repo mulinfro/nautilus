@@ -1,8 +1,8 @@
 from stream import stream
 from char_stream import char_stream
 from eval_ast import parse, Env
-from ast import AST
-from token import token_list
+from ast_dict import AST
+from tokens import token_list
 
 builtins = locals()["__builtins__"]
 
@@ -11,7 +11,7 @@ def get_builtin_env():
     args  = [builtins.__dict__.get(a) for a in paras]
     return Env(parms = paras, args =args)
 
-def pysh(psh_file = "test.psh"):
+def pysh(psh_file = "test2.psh"):
     env = get_builtin_env()
     with open(psh_file) as f:
         codes = char_stream(f.read())
@@ -21,7 +21,7 @@ def pysh(psh_file = "test.psh"):
     #stream(tokens)
     ast_tree = AST(stream(tokens))
     for node in ast_tree.ast:
-        print(parse(node, env)())
+        print(":> ", parse(node, env)())
     """
     print("++++++++++++++++++++++++++++++++++", "www")
     for a in ast_tree.ast:

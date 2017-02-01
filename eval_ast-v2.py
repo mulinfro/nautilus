@@ -2,8 +2,6 @@ from builtin import operators, op_order, Binary, Unary, op_right
 import copy,sys
 from syntax_check import Error, syntax_cond_assert
 
-PARTIAL_FLAG = lambda : None
-
 class Return_exception(Exception):
     def __init__(self, value):
         self.value = value
@@ -34,52 +32,49 @@ class Env(dict):
         elif self.outer is None: return None
         else: return self.outer.find(var)
 
-def parse(node, env):
+def parse(node):
     if  node["type"] == 'DEF': 
-        val = parse_def(node, env)
+        val = parse_def(node)
     elif node["type"] == 'IMPORT': 
-        val = parse_import(node, env)
+        val = parse_import(node)
     else:
-        val = parse_block_expr(node, env)
+        val = parse_block_expr(node)
     return val
 
-def gen_partial(f, env):
-    return lambda node: f(node,env)
-    
-def parse_block_expr(node, env):
+def parse_block_expr(node):
     if node["type"] == 'IF':
-        val = parse_if(node, env)
+        val = parse_if(node)
     elif node["type"] == 'WHILE': 
-        val = parse_while(node, env)
+        val = parse_while(node)
     elif node["type"] == "FOR":
-        val = parse_for(node, env)
+        val = parse_for(node)
     elif node["type"] in ["BREAK", "CONTINUE", "RETURN"]:
-        val = parse_flow_goto(node, env)
+        val = parse_flow_goto(node)
     else:
-        val = parse_expr(node, env)
+        val = parse_expr(node)
     return val
 
-def parse_expr(node, env):
+def parse_expr(node):
     if node["type"] in ("ASSIGN", "GASSIGN"):
-        val = parse_assign(node, env)
+        val = parse_assign(node)
     elif node["type"] == "PASSIGN":
-        val = parse_pattern_assign(node, env)
+        val = parse_pattern_assign(node)
     else:
-        val = parse_simple_expr(node, env)
+        val = parse_simple_expr(node)
     return val
 
-def parse_simple_expr(node, env):
+def parse_simple_expr(node):
     if node["type"] == "SIMPLEIF":
-        val = parse_simpleif_expr(node, env)
+        val = parse_simpleif_expr(node)
     elif node["type"] == "BIEXPR":
-        val = parse_binary_expr(node, env)
+        val = parse_binary_expr(node)
     else:
-        val = parse_unary(node, env)
+        val = parse_unary(node)
     return val
 
-def parse_flow_goto(node, env):
+def parse_flow_goto(node):
     if node["type"] == "RETURN":
-        rval = parse_expr(node["rval"], env)
+        rval = parse_expr(node["rval"])
         val = Return_exception(rval)
     elif node["type"] == "BREAK":
         val = Break_exception()
@@ -90,7 +85,7 @@ def parse_flow_goto(node, env):
         raise val
     return lambda: _raise_error(val)
 
-def parse_import(node, env):
+def parse_import(node):
 
     import sys, os, importlib
     def get_module_path(_from, p_num):
@@ -151,16 +146,14 @@ def parse_import(node, env):
         else:
             python_import(_from, _import[i], _as[i])
 
-def parse_assign(node, env):
-    val = parse_expr(node["val"], env)
+def parse_assign(node):
+    val = parse_expr(node["val"])
     var = node["var"]["name"]
-    to_env = env
-    if node["type"] == "GASSIGN":
-        to_env = env.globals
-    def _assign(v):
-        to_env[var] = v
+    def _assign(v, env):
+        if node["type"] == "GASSIGN": env = env.globals
+        env[var] = v
         return v
-    return lambda: _assign(val())
+    return lambda env: _assign(val(), env)
 
 def lst_combine(var, v):
     syntax_cond_assert(len(var) <= len(v), "error: to many variables")
@@ -170,21 +163,22 @@ def lst_combine(var, v):
     pairs.append(tail)
     return pairs
 
-def parse_pattern_assign(node, env):
-    val = parse_expr(node["val"], env)
+def parse_pattern_assign(node):
+    val = parse_expr(node["val"])
     var = node["var"]["variables"]
     
     def _update():
+        if node["type"] == "GASSIGN": env = env.globals
         env.update(lst_combine(var, val()))
     return _update
         
-def parse_simpleif_expr(node, env):
-    cond = parse_simple_expr(node["cond"], env)
-    then = parse_simple_expr(node["then"], env)
-    else_t = parse_simple_expr(node["else"], env)
-    return lambda: then() if cond() else else_t()
+def parse_simpleif_expr(node):
+    cond = parse_simple_expr(node["cond"])
+    then = parse_simple_expr(node["then"])
+    else_t = parse_simple_expr(node["else"])
+    return lambda env: then(env) if cond(env) else else_t(env)
 
-def parse_bi_oper(node, env):
+def parse_bi_oper(node):
     op_info = {"name": node["val"], 
                "order": op_order[node["val"] ],
                "right": node["val"] in op_right,
@@ -192,9 +186,9 @@ def parse_bi_oper(node, env):
     return op_info
 
 
-def parse_binary_expr(node, env):
-    g_vals = list(map(gen_partial(parse_unary, env), node["val"]))
-    g_ops  = list(map(gen_partial(parse_bi_oper, env), node["op"]))
+def parse_binary_expr(node):
+    g_vals = list(map(parse_unary, node["val"]))
+    g_ops  = list(map(parse_bi_oper, node["op"]))
     '''
     print("binary", node["val"], node["op"])
     print("binary", g_vals, g_ops)
@@ -202,7 +196,7 @@ def parse_binary_expr(node, env):
         print("ggg", g())
         '''
 
-    def compute_expr():
+    def compute_expr(env):
         vals, ops = copy.copy(g_vals), copy.copy(g_ops)
 
         def binary_order(left):
@@ -213,7 +207,7 @@ def parse_binary_expr(node, env):
             if (my_op["name"] == 'OR' and left ) or (my_op["name"] == 'AND' and (not left)):
                 return left
 
-            right = vals.pop(0)()
+            right = vals.pop(0)(env)
             if len(ops) > 0:
                 his_op = ops[0]
                 if his_op["order"] > my_op["order"] or \
@@ -224,56 +218,56 @@ def parse_binary_expr(node, env):
             new_left = my_op["func"](left,right)
             return binary_order(new_left)
 
-        left = vals.pop(0)()
+        left = vals.pop(0)(env)
         return binary_order(left)
     
     return compute_expr
 
-def parse_args(node, env):
+def parse_args(node):
     syntax_cond_assert(node["type"] in ("ARGS", "TUPLE", "PARN", "PARTIAL"), "error type")
-    arg_vals = list(map(gen_partial(parse_expr, env), node["val"]))
+    arg_vals = list(map(parse_expr, node["val"]))
     default_vals = []
-    if "default_vals" in node:
-        default_vals = list(map(gen_partial(parse_expr, env), node["default_vals"]))
+    if node["type"] is "ARGS":
+        default_vals = list(map(parse_expr, node["default_vals"]))
 
-    def _args():
+    def _args(env):
         r_default = {}
         if "default_args" in node:
-            r_default_vals = [f() for f in default_vals]
+            r_default_vals = [f(env) for f in default_vals]
             r_default = dict(zip(node["default_args"], r_default_vals))
-        r_arg_vals = [f() for f in arg_vals]
+        r_arg_vals = [f(env) for f in arg_vals]
         return (r_arg_vals, r_default)
 
     return _args
     
 
-def parse_suffix_op(op, env):
+def parse_suffix_op(op):
     if op["type"] in ("PARN", "TUPLE", "ARGS"):
-        snv = parse_args(op, env)
+        snv = parse_args(op)
         return lambda f: Unary["CALL"](f, snv())
     elif op["type"] is "PARTIAL":
-        return parse_partial(op, env)
+        return parse_partial(op)
     elif op["type"] is "DOT":
         return lambda x: x.__getattribute__(op["attribute"])
     else:
-        snv = parse_list(op, env)
-        return lambda v: Unary["GET"](v, snv())
+        snv = parse_list(op["val"])
+        return lambda v,env: Unary["GET"](v, snv(env))
 
-def parse_partial(node, env):
-    h_args = parse_args(node, env)
+def parse_partial(node):
+    h_args = parse_args(node)
+
     def _fdo(f):
-        args, default_args = h_args()
         def _do(*p_args):
             total_args, i = [], 0
-            for h in args:
-                if h is not PARTIAL_FLAG:
-                    total_args.append(h)
+            for h in h_args:
+                if h is not None:
+                    total_args.append(h())
                 else:
                     if i >= len(p_args): Error()
                     total_args.append(p_args[i])
                     i = i + 1
             if i < len(p_args): Error()
-            return f(*total_args, **default_args)
+            return f(*p_args)
         return _do
     return _fdo
 
@@ -313,7 +307,6 @@ def parse_val_expr(node, env):
         atom = parse_lambda(node, env)
     else:
         #print("val_expr: " + t_type)
-        print(node)
         Error("val_expr: " + t_type)
     return atom
 
@@ -369,9 +362,7 @@ def return_none(env = {}):
 def parse_if(node, env):
     cond = parse_simple_expr(node["cond"], env)
     then_f = parse_block(node["then"], env)
-    else_f = lambda: None
-    if node["else"]:
-        else_f = parse_block(node["else"], env)
+    else_f = parse_block(node["else"], env)
     return lambda : then_f() if cond() else else_f()
 
 def parse_in(node, env):
@@ -432,18 +423,15 @@ def parse_syscall(node, env):
 def parse_sysfunc(node, env):
     return lambda args: os_call(node["val"]% args)
 
-
-
 # Q default args
 def parse_lambda(node, env):
-    arg_var_list = [e["name"] for e in node["args"]["val"]]
+    arg_var_list = parse_args(node["args"], env)
     new_env = Env(outer = env)
     body_f = parse_expr(node["body"], new_env)
     def proc(*arg_val_list):
-        if len(arg_var_list) != len(arg_var_list): Error("not enough arguments")
         new_env.update(zip(arg_var_list,arg_val_list))
-        return body_f()
-    return lambda: proc
+        return body_f(new_env)
+    return proc
 
 def parse_atom(node, env):
     return lambda: node["val"]
@@ -452,10 +440,17 @@ def parse_var(node, env):
     var = node["name"]
     def find():
         t = env.find(var)
-        if t is None: Error(var + " not find")
+        if t is None: Error()
         return t[var]
-    return (lambda: PARTIAL_FLAG) if var == "_" else find
+    return None if var == "_" else find
     
+def squence_do(pf, exprs):
+    exprs_lambda = list(map(pf, exprs))
+    def _do():
+        for expr in exprs_lambda: expr()
+
+    return _do()
+
 def parse_block(node, env):
     exprs = list(map(gen_partial(parse, env), node))
     def squence_do():
@@ -464,19 +459,17 @@ def parse_block(node, env):
         return ("SUCCESS", None)
     return squence_do
 
-
 def parse_def(node, env):
-    args_node = node["args"]["val"]
-    args = []
-    for ag in args_node:
-        if ag["type"] != "VAR": Error("syntax error in function def arguments")
-        args.append(ag["name"])
-    #print("NODE", node)
+    args = node["args"]
+    print("NODE", node)
+    print("ARGS", args)
     default_args, default_vals = [], []
     if "default_args" in args:
         default_vals = parse_expr(args["default_vals"], env)
         default_args = parse_expr(args["default_args"], env)
 
+    pf = gen_partial(parse, env)
+    body_f = squence_do(pf, node["body"])
 
     def proc(*args_vals, **kwargs):
         if len(args_vals) < len(args) or len(args_vals) > len(args) + len(default_args):
@@ -485,9 +478,8 @@ def parse_def(node, env):
             if k not in default_args:
                 Error("%s() not defined argument %s"%(node["name"], k))
         new_env = Env(outer = env)
-        body_f = parse_block(node["body"], new_env)
         # default args, every call re-eval, update them
-        r_default_vals = [a() for a in default_vals]
+        r_default_vals = [a(env) for a in default_vals]
         new_env.update(list(zip(default_args, r_default_vals)))
         av = list(zip(args + default_args, args_vals))
         new_env.update(av)
@@ -495,12 +487,12 @@ def parse_def(node, env):
 
         def _run():
             try:
-                body_f()
+                body_f(new_env)
                 return None
             except Return_exception as r:
-                return r.value()
+                return r.value
 
-        return _run()
+        return _run
 
     env[node["funcname"]] = proc
     return lambda: "function: " + node["funcname"]
