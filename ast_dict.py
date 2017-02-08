@@ -1,3 +1,7 @@
+"""
+     将tokens转化成ast; 加上一定的语法检查
+     一个ast节点用字典表示，字典中包含了解析此node的必要信息
+"""
 from stream import stream
 from syntax_check import *
 from builtin import Binary, Unary
@@ -5,6 +9,7 @@ import sys
 
 Tautology = lambda x: True
 
+# 分隔符语法检查
 def check_expr_end(stm):
     if not stm.eof():
         syntax_assert(stm.next(), "SEP", "syntax error")
@@ -34,19 +39,13 @@ class AST():
             tkn = self.tokens.peek()
             if tkn.tp is 'DEF':
                 val = self.ast_def(self.tokens)
-            elif tkn.tp in 'IMPORT':
+            elif tkn.tp in ["FROM", 'IMPORT']:
                 val = self.ast_import(self.tokens)
             elif tkn.tp in ['IF', 'FOR', 'WHILE']:
                 val = self.ast_control(self.tokens)
             else:
-                #print("CALLLLLLLLLL: ", tkn.tp)
                 val = self.ast_try_pattern_assign(self.tokens)
 
-            '''
-            for k, v in val.items():
-                print(k, "\t", v)
-            print("\n")
-            '''
             self.ast.append(val)
 
     def ast_assign_helper(self, stm, tps):
@@ -58,10 +57,12 @@ class AST():
             return {"type":a_tp, "var":var, "val":val}
         return None
 
+    # 模式匹配赋值 example  x::y::_ = [1,2,3]  => x=1, y=2, _ = [3]
     def ast_try_pattern_assign(self, stm):
         t = self.ast_assign_helper(stm, ("PASSIGN", ))
         return self.ast_try_assign(stm) if t is None else t
 
+    # 赋值；可连续赋值 x=y=z=1+1
     def ast_try_assign(self, stm):
         t = self.ast_assign_helper(stm, ("ASSIGN", "GASSIGN"))
         if t is None:
@@ -263,7 +264,7 @@ class AST():
 
     def ast_in(self, stm):
         var = self.ast_pattern_var(stm)
-        syntax_assert(stm.next(), ("OP", "IN"), "error syntax in for setence")
+        syntax_assert(stm.next(), ("OP", "IN"), "syntax error in for setence")
         val = self.ast_expr(stm)
         check_eof(stm)
         return {"type":"IN", "var":var, "val":val }
@@ -330,7 +331,7 @@ class AST():
         elif tkn.tp in ('NUM', 'STRING', 'BOOL', "SYSCALL" ,"SYSFUNC", "NONE"):
             val = {"type":tkn.tp, "val":tkn.val}
         else:
-            Error(tkn)
+            Error("Parse Error:%s,%s"%(tkn.tp, str(tkn.val)), tkn.line, tkn.col)
 
         return val
             

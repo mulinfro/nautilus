@@ -12,6 +12,4 @@ class char_stream(stream):
         self.pos = self.pos + 1
         return ch
 
-    def crack(self, msg):
-        import sys
-        print("Error: line %d col %d %s"%(self.line, self.col, msg), file=sys.stderr)
+

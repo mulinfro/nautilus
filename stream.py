@@ -9,7 +9,7 @@ class stream():
         return self._stream[self.pos - 1]
 
     def peek(self):
-        if self.eof():  Error("EOL while scanning string literal")
+        if self.eof():  self.crack("EOL while scanning string literal")
         return self._stream[self.pos]
 
     def back(self):
@@ -32,3 +32,6 @@ class stream():
 
     def leftnum(self):
         return len(self._stream) - self.pos
+
+    def crack(self, msg):
+        Error("Syntax Error: " + msg, self.line, self.col)

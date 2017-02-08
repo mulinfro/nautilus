@@ -1,4 +1,4 @@
-from builtin import operators, op_order, Binary, Unary, special_op
+from builtin import operators, special_op
 
 keywords = {
 'and': 'AND',
@@ -24,6 +24,7 @@ keywords = {
 "from" :  "FROM",
 }
 
+# 字符转义表， 字符串解析中使用
 escape_table = {
     'n' : '\n',
     'r' : '\r',
@@ -43,6 +44,10 @@ def num(s):
     except ValueError:
         return float(s)
 
+""" 
+脚本文件先解析成token的列表;
+一个token包含: 类型(tp), 值, 位于文件行数及列数 
+"""
 class token():
     def __init__(self, tkn_type, tkn_val, line, col=0):
         self.tp   = tkn_type
@@ -53,6 +58,10 @@ class token():
     def __repr__(self):
         return ("type:%s; val %s; line %d col %d") %(self.tp, self.val, self.line, self.col)
 
+"""
+token解析类: 每次调用read_a_token返回一个token; 文件末尾时候返回None
+token主要类型为几类: STRING, NUM, LIST, DICT, PARN, SYS_CALL, SEP, OP(操作符), VAR, KEYWORDS
+"""
 class token_list():
     
     def __init__(self, chars):
@@ -84,13 +93,14 @@ class token_list():
         else: tkn = self.read_op()   # throw exception
         return tkn
 
+   # 拼接两行为一行命令; 跟python中一样
     def link(self):
         self.chars.next()
         if self.chars.next() != '\n':
-            Error("Line %d: unexpected char after line continuation"% self.chars.line)
-        else:
-            return self.read_a_token()
+            self.chars.crack("unexpected char after line continuation")
+        return self.read_a_token()
 
+    # 系统调用；$开头的单行命令;   $''' xxxx''''  多行命令函数，不立即执行，像函数那样调用
     def read_sys_call(self):
         line, col = self.chars.line, self.chars.col
         self.chars.next()
@@ -115,10 +125,12 @@ class token_list():
         else: 
             return token('SEP', 'NEWLINE', line, col)
         
+    # 跳过空格
     def read_white_space(self, ss = " \t"):
         while not self.chars.eof() and self.chars.peek() in ss:
             self.chars.next()
             
+    # 变量；区分出关键字
     def read_var(self):
         line, col = self.chars.line, self.chars.col
         var = ""
@@ -143,8 +155,9 @@ class token_list():
         elif op in operators: 
             return token("OP", operators[op], line, col)
         else:
-            self.chars.crack('Undefined operator '+op)
+            self.chars.crack('Undefined operator '+ op)
 
+   # 读一个() [] or {}
     def read_pair(self, tp, end_ch):
         line, col = self.chars.line, self.chars.col
         val = []
@@ -158,7 +171,7 @@ class token_list():
             else:
                 val.append(self.read_a_token())
 
-        self.chars.crack('snytax error: missing ' + end_ch)
+        self.chars.crack('missing ' + end_ch)
 
     def read_list(self):
         return self.read_pair("LIST", ']')
@@ -179,20 +192,20 @@ class token_list():
                 ns += ch
                 if ch in "Ee": has_e = True
             elif has_e and (ch == '+' or ch == '-'):
-                ns += ch
+                ns += ch     # 科学记数法
             else:
                 break
 
             self.chars.next()
-            if ch in "Ee": has_e = True
-            else: has_e = False
+            if ch not in "Ee": has_e = False
         return token("NUM", num(ns), line, col)
 
+   # dot开头的可能是num，也可能是点操作符
     def read_dot(self):
         line, col = self.chars.line, self.chars.col
         self.chars.next()
         if str.isdigit(self.chars.peek()): 
-            self.back()
+            self.chars.back()
             return self.read_num()
         else: 
             return token('DOT', '.', line, col)
@@ -203,6 +216,7 @@ class token_list():
         self.chars.next(), self.chars.next()
         return True
 
+    # String语法与python中一样,可能是 "  ' , 多行string用""" , ''''
     def read_string(self):
         line, col = self.chars.line, self.chars.col
         val = ""
@@ -216,8 +230,7 @@ class token_list():
                 if ch in escape_table: val += escape_table[ch]
                 else: val += "\\" + ch
             elif ch == '\n' and not is_multi:
-                self.chars.crack('missing %s'%terminal_char)
-                #Error()
+                self.chars.crack('missing terminal %s'%terminal_char)
             elif ch == '\\':
                 isEscape = True
             elif (ch == terminal_char) and (not is_multi \
@@ -226,4 +239,4 @@ class token_list():
             else:
                 val += ch
 
-        self.chars.crack('syntax error: missing %s'%terminal_char)
+        self.chars.crack('missing terminal %s'%terminal_char)

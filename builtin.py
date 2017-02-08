@@ -1,3 +1,6 @@
+"""
+    builtin operators
+"""
 import operator
 
 operators = {
@@ -41,7 +44,7 @@ op_order = {
     "MUL": 20, "DIV": 20, "MOD": 20,
 }
 
-# 右结合
+# 结合性; 右结合
 op_right = {
     "EQUAL": 2,
 }
@@ -72,7 +75,6 @@ def _append(var, filename):
     _write_helper(var, filename, 'a')
 
 def _call(f, arg):
-    #print("ARGWWWW:", arg)
     return f(*arg[0], **arg[1])
 
 def _get_dict(v, k):
@@ -118,6 +120,8 @@ Binary = {
 
 Unary = {
     'OSCALL': None,
+    'ADD': lambda x:x,
+    'MINUS': lambda x:-x,
     'NOT': _not,
     "CALL": _call,
     "GET" : _get,
