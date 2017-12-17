@@ -39,3 +39,13 @@ pysh支持的一些语法用例
     		    eqpart = list(filter(eq(_, lst[0]), lst))
     		    return  qsort(leftpart) + eqpart + qsort(rightpart)
 		end
+		
+TODO
+-----------------------
+增加环境程序调用方法；
+
+Example: python test_programe --path="/tmp/input" --out="/tmp/out"  => 
+shellCall("python", "test_programe", args={
+"path":"/tmp/input",
+"out":"/tmp/out"
+} )
