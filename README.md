@@ -28,14 +28,14 @@ pysh支持的一些语法用例
 -------
 		[1,2,8,1:5, 10:1:-2]
 		def qsort(lst)
-    			lt = lambda (x,y): x<y
-    			gt = lambda (x,y): x>y
-    			eq = lambda (x,y): x==y
-    			if (len(lst) <= 1)
-				return lst
-    			end
-    			leftpart = list(filter(lt(_, lst[0]), lst))
-    			rightpart = list(filter(gt(_, lst[0]), lst))
-    			eqpart = list(filter(eq(_, lst[0]), lst))
-    			return  qsort(leftpart) + eqpart + qsort(rightpart)
+    		    lt = lambda (x,y): x<y
+    		    gt = lambda (x,y): x>y
+    		    eq = lambda (x,y): x==y
+    		    if (len(lst) <= 1)
+			return lst
+    		    end
+    		    leftpart = list(filter(lt(_, lst[0]), lst))
+    		    rightpart = list(filter(gt(_, lst[0]), lst))
+    		    eqpart = list(filter(eq(_, lst[0]), lst))
+    		    return  qsort(leftpart) + eqpart + qsort(rightpart)
 		end
