@@ -16,8 +16,8 @@ class Env(dict):
 def get_builtin_env(builtins):
     paras = dir(builtins)
     args  = [builtins.__dict__.get(a) for a in paras]
-    from sh import os, text_process
-    register(os, paras, args)
+    from sh import os_cmd, text_process
+    register(os_cmd, paras, args)
     register(text_process, paras, args)
     return Env(parms = paras, args =args)
 

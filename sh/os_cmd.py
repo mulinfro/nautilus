@@ -21,8 +21,7 @@ def replace_if_star_dir(path):
         for filename in os.listdir(path):
             ans.append(os.path.join(path,filename))
         return ans
-    else:
-        return path
+    return [path]
 
 def ls(path=".", p=""):
     p = p.lower()
