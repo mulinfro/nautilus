@@ -11,7 +11,7 @@ def get_builtin_env():
     args  = [builtins.__dict__.get(a) for a in paras]
     return Env(parms = paras, args =args)
 
-def pysh(psh_file = "C:\\Users\\l.liu\\Documents\\GitHub\\nautilus\\test.psh"):
+def pysh(psh_file = "test2.psh"):
     env = get_builtin_env()
     with open(psh_file) as f:
         codes = char_stream(f.read())

@@ -1,5 +1,6 @@
 from builtin import operators, op_order, Binary, Unary, op_right
 import copy,sys
+from env import Env
 from syntax_check import Error, syntax_cond_assert
 
 PARTIAL_FLAG = lambda : None
@@ -23,17 +24,6 @@ class Break_exception(Exception):
     def __str__(self):
         return repr(self.value)
 
-class Env(dict):
-    "An environment: a dict of {'var':val} pairs, with an outer Env."
-    def __init__(self, parms=(), args=(), outer=None):
-        self.update(zip(parms, args))
-        self.outer = outer
-        self.globals = outer.globals if outer else self
-    def find(self, var):
-        "Find the innermost Env where var appears."
-        if (var in self): return self
-        elif self.outer is None: return None
-        else: return self.outer.find(var)
 
 def parse(node):
     if  node["type"] == 'DEF': 
@@ -210,7 +200,6 @@ def parse_binary_expr(node):
                 his_op = ops[0]
                 if his_op["order"] > my_op["order"] or \
                     (his_op["order"] == my_op["order"] and his_op["right"]):
-                    ops.pop(0)
                     right = binary_order(right)
 
             new_left = my_op["func"](left,right)
@@ -237,6 +226,13 @@ def parse_args(node):
         return (r_arg_vals, r_default)
 
     return _args
+
+
+# 返回第一个值
+def parse_parn(node):
+    syntax_cond_assert(len(node["val"]) == 1 , "error: empty parn")
+    parn_node = parse_expr(node["val"][0])
+    return lambda env: parn_node(env)
     
 
 def parse_suffix_op(op):
@@ -248,7 +244,7 @@ def parse_suffix_op(op):
     elif op["type"] is "DOT":
         return lambda env: lambda x: x.__getattribute__(op["attribute"])
     else:
-        snv = parse_list(op)
+        snv = parse_list(op["val"])
         return lambda env: lambda v: Unary["GET"](v, snv(env))
 
 def parse_partial(node):
@@ -290,7 +286,7 @@ def parse_val_expr(node):
     if t_type is 'VAR':
         atom = parse_var(node)
     elif t_type is 'LIST': 
-        atom = parse_list(node)
+        atom = parse_list(node["val"])
     elif t_type is 'TUPLE':
         atom = parse_tuple(node)
     elif t_type is 'DICT': 
@@ -303,6 +299,8 @@ def parse_val_expr(node):
         atom = parse_sysfunc(node)
     elif t_type is 'LAMBDA':
         atom = parse_lambda(node)
+    elif t_type is 'PARN':
+        atom = parse_parn(node)
     else:
         Error("val_expr: " + t_type)
     return atom
@@ -322,16 +320,16 @@ def parse_list_comp(node):
 
     return  _list_range
 
-def parse_list(node):
+def parse_list(node_list):
     res = []
-    for ele in node["val"]:
+    for ele in node_list:
         if ele["type"] == "LISTCOM":
             res.append(("COMP", parse_list_comp(ele)))
         else:
             res.append(("ELE", parse_expr(ele)))
 
+    v = []
     def _p_list(env):
-        v = []
         for r in res:
             if r[0] == "COMP": v.extend(r[1](env))
             else:  v.append(r[1](env))
@@ -340,7 +338,7 @@ def parse_list(node):
     return _p_list
 
 def parse_tuple(node):
-    val = parse_list(node)
+    val = parse_list(node["val"])
     return lambda env: tuple(val(env))
 
 def parse_dict(node):
@@ -348,9 +346,7 @@ def parse_dict(node):
     vals = parse_list(node["val"])
     res = {}
     def _dict(env):
-        t_key = [ f(env) for f in keys]
-        t_val = [ f(env) for f in vals]
-        res.update(list(zip(t_key, t_val)))
+        res.update(list(zip(keys(env), vals(env))))
         return res
     return _dict
         

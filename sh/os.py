@@ -8,6 +8,12 @@ WORK_DIR = ""
         d: dirs
 """
 
+def is_file(filename):
+    return not os.path.isdir(filename)
+
+def is_dir(path):
+    return os.path.isdir(path)
+
 def replace_if_star_dir(path):
     if path[-1] == "*":
         ans = []
@@ -18,14 +24,19 @@ def replace_if_star_dir(path):
     else:
         return path
 
-def ls(path="", p=""):
+def ls(path=".", p=""):
     p = p.lower()
-    if ("f" in p and "d" in p) or ("f" not in p and "d" not in p):
-        return os.listdir(path)
+    if "f" not in p and "d" not in p:
+        p = p + "df"
     ans = []
     for filename in os.listdir(path):
-        if os.path.isdir(os.path.join(path,filename)):
+        new_path = os.path.join(path,filename)
+        if os.path.isdir(new_path):
             if "d" in p: ans.append(filename)
+            if "r" in p: 
+                t = ls(new_path, p)
+                joined_t = [ os.path.join(new_path, e) for e in t ]
+                ans.extend(joined_t)
         elif "f" in P:
             ans.append(filename)
 

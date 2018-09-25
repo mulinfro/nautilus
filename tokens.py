@@ -177,7 +177,7 @@ class token_list():
         return self.read_pair("LIST", ']')
 
     def read_hashmap(self):
-        return self.read_pair("MAP", '}')
+        return self.read_pair("DICT", '}')
 
     def read_parn(self):
         return self.read_pair("PARN",')')

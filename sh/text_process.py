@@ -1,11 +1,11 @@
 
 import re
-from itertools import imap, chain
+from itertools import chain
 
 def grep(pattern, iterable, p="ir"):
     for line in iterable:
-
-    pass
+        if pattern in line:
+            yield line
 
 def replace(iterable, pre="", now="", p=""):
     for line in iterable:
@@ -54,7 +54,7 @@ def flat(listOfLists):
     return chain.from_iterable(listOfLists)
 
 def flatMap(f, items):
-    return chain.from_iterable(imap(f, items))
+    return chain.from_iterable(map(f, items))
 
 def join():
     pass

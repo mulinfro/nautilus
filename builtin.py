@@ -59,7 +59,7 @@ _equal = lambda x,y: x == y
 _and = lambda x,y: x and y
 _or = lambda x,y: x or y 
 _not = lambda x: not x
-_pipe = lambda x: f(x)
+_pipe = lambda x,f: f(x)
 _in  = lambda x,y: x in y
 _is  = lambda x,y: x is y
 
