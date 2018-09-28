@@ -13,16 +13,22 @@ pysh的特点
 4.  关键词列表: def, is, in, if, else, for, while, break, continue, return, lambda 
 5.  操作符列表：and, or, not, +, -, *, /, %, =, :=, $, |, . , &>, &>>, >, >=, <, <=, !=, ==
 
+
 与python不一样的地方
+----------------
+
+1. 不需要缩进，用end来表示一个block的结束
+2. lambda后面的参数跟函数定义一样需要括号
+3. for, if ,while, def这些定义需要括号，最后面不需要冒号，eg. if(a > b) pass end
+
 
 新增的特性
 ----------------
-1. 管道PIPE
-2. IO重定向到文件的操作符
-3. 调用shell原生命令的操作符
-4. 偏函数定义
-5. 使用end作为语句结束标识，不再需要严格的缩进
-6. list切片，dict取list里所有对象
+1. 管道PIPE, eg: ls() | cat(p="r") | wc (统计当前目录下的所有文件的行数; "r"参数表示包含所有子目录中文件)
+2. IO重定向到文件的操作符 &>  &>>  用于快速输出文件
+3. 调用shell原生命令的操作符； 如果需要调用原始的shell命令，用这个语法
+4. 偏函数定义; 用"_"表示占位符，f(_, y)(x) == f(x,y); 这个特性结合PIPE很方便
+5. list切片，dict取list里所有对象
 
 examples
 -------
@@ -40,5 +46,16 @@ examples
     		    return  qsort(leftpart) + eqpart + qsort(rightpart)
 		end
 		
+重写的shell命令介绍
+--------------------
+
+sh目录中把一些常见的shell命令都用python重新实现了下，输入输出参数会与原始的shell命令有差异
+grep
+egrep
+cat
+ls
+
+
+
 TODO
 --------------------
