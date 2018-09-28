@@ -13,7 +13,7 @@ pysh的特点
 4.  关键词列表: def, is, in, if, else, for, while, break, continue, return, lambda 
 5.  操作符列表：and, or, not, +, -, *, /, %, =, :=, $, |, . , &>, &>>, >, >=, <, <=, !=, ==
 
-
+与python不一样的地方
 
 新增的特性
 ----------------
@@ -24,7 +24,7 @@ pysh的特点
 5. 使用end作为语句结束标识，不再需要严格的缩进
 6. list切片，dict取list里所有对象
 
-pysh支持的一些语法用例
+examples
 -------
 		[1,2,8,1:5, 10:1:-2]
 		def qsort(lst)
@@ -41,11 +41,4 @@ pysh支持的一些语法用例
 		end
 		
 TODO
------------------------
-增加环境程序调用方法；
-
-Example: python test_programe --path="/tmp/input" --out="/tmp/out"  => 
-shellCall("python", "test_programe", args={
-"path":"/tmp/input",
-"out":"/tmp/out"
-} )
+--------------------
