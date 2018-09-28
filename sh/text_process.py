@@ -1,29 +1,60 @@
 
 import re
 from itertools import chain
-from os_cmd import is_dir, replace_if_star_dir
+from sh.os_cmd import is_dir, replace_if_star_dir
 
-def grep(pattern, iterable, p="ir"):
-    for line in iterable:
-        if pattern in line:
-            yield line
+def pipe_itertool(func):
+    def wrapper(*args, **kw):
+        assert(len(args) > 0)
+        if type(args[0]) == str:
+            return func(*args, **kw)
+        for line in args[0]:
+            new_args = (line,) + args[1:]
+            ans = func(*new_args, **kw)
+            if ans is not None: yield ans
+    return wrapper
+    
+@pipe_itertool
+def grep(line, pat, p=""):
+    if pat in line: return line
 
-def replace(iterable, pat="", repl="", p="", cnt=0):
-    for line in iterable:
-        if "v" not in p:
-            yield line.replace(pat, repl)
-        else:
-            yield re.replace(pat, repl, line, cnt)
+def wc(iterable, p="l"):
+    i = 0
+    for x in iterable:
+        i += 1
+    return i
+
+@pipe_itertool
+def egrep(line, pat, p="i"):
+    if "i" in p: pattern = re.compile(pat, re.I)
+    else:        pattern = re.compile(pat)
+    match = pattern.search(line)
+    if match:
+        return line
+
+@pipe_itertool
+def replace(line, pat, repl, p="", cnt=0):
+    if "v" not in p:
+        return line.replace(pat, repl)
+    else:
+        return re.replace(pat, repl, line, cnt)
+
 
 def cat(iterable):
+    if type(iterable) == str: iterable = [iterable]
     for path in iterable:
         pathes = replace_if_star_dir(path)
         for file_name in pathes:
             if is_dir(file_name): continue
             f = open(file_name, "r")
-            for line in f.readline():
+            for line in f:
                 yield line
             f.close()
+
+@pipe_itertool
+def tojson(line):
+    import json
+    return json.loads(line.strip())
 
 def more(file_name):
     f = open(file_name, "r")
@@ -67,10 +98,12 @@ def xmap(eles, func = lambda x:x):
 def sed():
     pass
 
+@pipe_itertool
 def split(string, sep="", cnt=0, p=""):
     if "v" in p:
-        return re.split(pattern, string, cnt)
-    return string.split(pattern, cnt)
+        return re.split(sep, string, cnt)
+    else:
+        return string.split(sep, cnt)
 
 def findall():
     pass

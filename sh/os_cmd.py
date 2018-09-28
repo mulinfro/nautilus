@@ -36,7 +36,7 @@ def ls(path=".", p=""):
                 t = ls(new_path, p)
                 joined_t = [ os.path.join(new_path, e) for e in t ]
                 ans.extend(joined_t)
-        elif "f" in P:
+        elif "f" in p:
             ans.append(filename)
 
     return ans

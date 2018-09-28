@@ -26,6 +26,21 @@ lst
 lst[0,3,5]
 [1,2,3] + [4,5,6]
 
+print("####################################")
+for (x in lst)
+    print(x)
+end
+print("####################################")
+
+
+
+
+print("###-#####-######")
+
+1 + 1 == 2
+
+print("###-#####-######")
+
 """def qsort(lst)
         lt = lambda (x,y): x<y
         gt = lambda (x,y): x>y
@@ -55,3 +70,9 @@ end
 "qsort(lst)"
 
 qsort(lst)
+
+
+ls(".") | head
+a = ls(".") 
+filter(lambda (x):len(x) > 3, a)
+ls(".") | filter(lambda (x):len(x) > 3, _) | list

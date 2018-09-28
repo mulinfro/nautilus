@@ -63,10 +63,24 @@ _pipe = lambda x,f: f(x)
 _in  = lambda x,y: x in y
 _is  = lambda x,y: x is y
 
+"""
+def _pipe(x,f):
+    import types
+    if not isinstance(x, types.GeneratorType):
+        yield f(x)
+    else:
+        for sx in x:
+            yield f(sx)
+"""
+
 def _write_helper(var, filename, mode):
-    var = str(var)
+    import types
     with open(filename, mode) as f:
-        f.write(var)
+        if isinstance(var, types.GeneratorType):
+            for e in var: f.write(str(var) + "\n")
+        else:
+            f.write(str(var))
+        
 
 def _write(var, filename):
     _write_helper(var, filename, 'w')

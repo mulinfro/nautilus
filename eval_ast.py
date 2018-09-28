@@ -187,8 +187,9 @@ def parse_binary_expr(node):
     def compute_expr(env):
         vals, ops = copy.copy(g_vals), copy.copy(g_ops)
 
-        def binary_order(left):
+        def binary_order(left, preorder):
             if len(ops) <= 0: return left
+            if preorder >= ops[0]["order"]: return left
             my_op = ops.pop(0)
 
             # Logic short circuit
@@ -200,13 +201,13 @@ def parse_binary_expr(node):
                 his_op = ops[0]
                 if his_op["order"] > my_op["order"] or \
                     (his_op["order"] == my_op["order"] and his_op["right"]):
-                    right = binary_order(right)
+                    right = binary_order(right, my_op["order"])
 
             new_left = my_op["func"](left,right)
-            return binary_order(new_left)
+            return binary_order(new_left, preorder)
 
         left = vals.pop(0)(env)
-        return binary_order(left)
+        return binary_order(left, -1)
     
     return compute_expr
 

@@ -17,9 +17,10 @@ def Error(msg, tkn=None):
 
 def Error(msg, line=None, col=None):
     import sys
-    if line and col: print("In line %d col %d"%(line, col))
-    print(msg, file=sys.stderr)
-    raise Eval_exception("")
+    prefix = "" 
+    if line and col: prefix = "In line %d col %d"%(line, col)
+    #print(msg, file=sys.stderr)
+    raise Eval_exception(prefix + msg)
     
 def syntax_check(tkn, need_tkn, not_ = False):
     if type(need_tkn) is tuple: flag = (tkn.tp, tkn.val) == need_tkn 

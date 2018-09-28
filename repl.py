@@ -4,6 +4,7 @@ from eval_ast import parse, Env
 from ast_dict import AST
 from tokens import token_list
 from env import get_builtin_env
+import types, re
 
 builtins = locals()["__builtins__"]
 def REPL():
@@ -11,8 +12,16 @@ def REPL():
     IN = "$> "
     env = get_builtin_env(builtins)
     def is_block(cmd):
-        return cmd.startswith("def ") or cmd.startswith("if ") \
-            or cmd.startswith("for ") or cmd.startswith("while ")
+        def helper(line, n):
+            return len(line) > n and line[n] in " \t("
+        if cmd.startswith("def") or cmd.startswith("for"):
+            return helper(cmd, 3)
+        elif cmd.startswith("if"):
+            return helper(cmd, 2)
+        elif cmd.startswith("while"):
+            return helper(cmd, 5)
+        else:
+            return False
 
     """
     def check_multiline_string(cmd, multiline_string_sep):
@@ -52,10 +61,11 @@ def REPL():
             fragment = char_stream("\n".join(cmdlines) +"\n")
             cmdlines = []
             tokens = token_list(fragment).tokens
-            print("tokens", tokens)
+            #print("tokens", tokens)
             ast_tree = AST(stream(tokens))
             for node in ast_tree.ast:
                 ans = parse(node)(env)
+                if ans is None: continue
                 if isinstance(ans, types.GeneratorType):
                     for e in ans: print(":> ", e)
                 else:
@@ -70,7 +80,12 @@ def pysh(psh_file):
     ast_tree = AST(stream(tokens))
     for node in ast_tree.ast:
         try:
-            print(parse(node)(env))
+            ans = parse(node)(env)
+            if ans is None: continue
+            if isinstance(ans, types.GeneratorType):
+                for e in ans: print(e)
+            else:
+                print(ans)
         except:
             print(node)
             print(parse(node)(env))
@@ -79,8 +94,6 @@ def pysh(psh_file):
         import sys
         main(*sys.argv[1:])
         
-
-
 if __name__ == "__main__":
-    pysh("test2.psh")
+    #pysh("test2.psh")
     REPL()
